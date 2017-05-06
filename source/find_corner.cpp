@@ -25,19 +25,25 @@
  */
 int find_corner_test()
 {
-	cv::Mat o_src_img = imread("./test_img2/H_left1000.bmp",IMREAD_COLOR);
+	cv::Mat o_src_img = imread("./ChangAn_2/Front.bmp",IMREAD_COLOR);
+	cv::Mat o_clone_img = o_src_img.clone();
 
-	cv::Point Pt_0(200,249);
-	cv::Point Pt_1(268,251);
-	cv::Point Pt_2(130,278);
-	cv::Point Pt_3(198,295);
+	cv::Mat o_gray_img;
+	cvtColor( o_src_img, o_gray_img, CV_RGB2GRAY );
+	GaussianBlur( o_gray_img, o_gray_img, cv::Size(5,5), 0, 0 );
 
-	cv::Point Pt_4(475,253);
-	cv::Point Pt_5(536,251);
-	cv::Point Pt_6(548,294);
-	cv::Point Pt_7(603,279);
+	cv::Point Pt_0(200,245);//(200,249)
+	cv::Point Pt_1(263,251);//(268,251)
+	cv::Point Pt_2(135,278);//(130,278)
+	cv::Point Pt_3(198,290);//(198,295)
+
+	cv::Point Pt_4(471,250);//(475,253)
+	cv::Point Pt_5(532,257);//(536,251)
+	cv::Point Pt_6(544,290);//(548,294)
+	cv::Point Pt_7(603,275);//(603,279)
 
 	std::vector<cv::Point> Pt_vec;
+	cv::Point dst_pt;
 	
 	std::stringstream ss;
 	std::string pt_name;
@@ -63,6 +69,12 @@ int find_corner_test()
 
 	}
 
+	for( int i = 0; i < 8; i++ )
+	{
+		find_max_grad_corner( o_gray_img, Pt_vec[i], dst_pt, 5 );
+		cv::circle( o_clone_img,dst_pt,1,CV_RGB(0,255,0),1,8); 
+		printf("dst_pt%d = %d,%d\n",i,dst_pt.x,dst_pt.y);
+	}
 
 	//std::vector<cv::Point2f> o_corner_set;
 	//bool b_subpixel_refine = true;
@@ -79,11 +91,63 @@ int find_corner_test()
 	cv::namedWindow("Corner_img", WINDOW_AUTOSIZE);
 	cv::imshow("Corner_img", o_src_img);
 
+	cv::namedWindow("Clone_img", WINDOW_AUTOSIZE);
+	cv::imshow("Clone_img", o_clone_img);
+
 	cv::waitKey(0);
 
 	cv::destroyAllWindows();
 
 	return 0;
+}
+
+int find_max_grad_corner( cv::Mat o_gray_img, cv::Point src_pt, cv::Point &dst_pt, const int offset )
+{
+	int h = o_gray_img.rows;
+	int w = o_gray_img.cols;
+	float grad_xy = 0;
+	//std::vector<float> grad_vec;
+	float max_grad = 0;
+
+	float sub_x =0;
+	float sub_y =0;
+
+	if( o_gray_img.empty() )
+	{
+		assert( !o_gray_img.empty() );
+		std::cout << "the gray image is empty!" << endl;
+		return -1;
+	}
+
+	max_grad = 0;
+
+	for( int r = src_pt.y-offset; r < src_pt.y+offset; r++ )
+	{
+		for( int c = src_pt.x-offset; c < src_pt.x+offset; c++ )
+		{
+			sub_x = std::abs( o_gray_img.at<uchar>(r-1,c+1) - o_gray_img.at<uchar>(r-1,c-1) + 
+							 (o_gray_img.at<uchar>(r,c+1) - o_gray_img.at<uchar>(r,c-1) ) * 2 +
+							  o_gray_img.at<uchar>(r+1,c+1) - o_gray_img.at<uchar>(r+1,c-1) );
+
+			sub_y = std::abs( o_gray_img.at<uchar>(r+1,c-1) - o_gray_img.at<uchar>(r-1,c-1) + 
+							  (o_gray_img.at<uchar>(r+1,c) - o_gray_img.at<uchar>(r-1,c) )* 2 +
+							  o_gray_img.at<uchar>(r+1,c+1) - o_gray_img.at<uchar>(r-1,c+1) );
+
+			grad_xy = (float)sqrt( (double)( sub_x * sub_x + sub_y * sub_y ) );
+
+			if( grad_xy - max_grad > 1e-3 )
+			{
+				max_grad = grad_xy;
+				dst_pt.x = c;
+				dst_pt.y = r;
+
+			}
+			
+		}
+	}
+
+	return 0;
+
 }
 
 /*

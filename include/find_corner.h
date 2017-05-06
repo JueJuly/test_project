@@ -16,7 +16,7 @@
 int find_corner_test();
 //以src_pt点为中心点，上下左右偏移offset个像素区域内查找梯度最大的点，
 //将找到的点返回到dst_pt变量中
-int find_max_grad_corner(cv::Point src_pt, cv::Point &dst_pt, const int offset = 5 );
+int find_max_grad_corner(cv::Mat o_gray_img, cv::Point src_pt, cv::Point &dst_pt, const int offset = 5 );
 //查找角点函数
 int find_corner(cv::Mat src_img, std::vector<cv::Point2f> &corner_points, bool subpixel_refine = true);
 

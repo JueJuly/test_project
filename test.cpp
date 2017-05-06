@@ -4,6 +4,7 @@
 //#include "stdafx.h"
 #include "test.h"
 #include "stack_point.h"
+#include "include\find_corner.h"
 
 //定义输入的图像方向类型
 //#define FRONT_IMG
@@ -31,9 +32,6 @@ void ThresholdProcessing();
 void SpatialFunction(double *dstData,int mode_row,int mode_clo,double singa);
 
 
-
-
-
 int _tmain(int argc, _TCHAR* argv[])
 {
 	//ThresholdProcessing();
@@ -42,6 +40,10 @@ int _tmain(int argc, _TCHAR* argv[])
 	//test1();
 	//Stack_Point2d_test();
 	//Image2double_test();
+
+	find_corner_test();
+	return 0;
+
 	int hist[14] = {1,24,2,4,5,7,23,7,23,12,6,5,34,27};
 	int hist_2[14] = {1,24,2,4,5,7,23,7,23,12,6,5,34,27};
 
