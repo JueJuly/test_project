@@ -30,17 +30,17 @@ int find_corner_test()
 
 	cv::Mat o_gray_img;
 	cvtColor( o_src_img, o_gray_img, CV_RGB2GRAY );
-	GaussianBlur( o_gray_img, o_gray_img, cv::Size(5,5), 0, 0 );
+	GaussianBlur( o_gray_img, o_gray_img, cv::Size(3,3), 0, 0 );
 
-	cv::Point Pt_0(200,245);//(200,249)
+	cv::Point Pt_0(202,245);//(200,249)
 	cv::Point Pt_1(263,251);//(268,251)
-	cv::Point Pt_2(135,278);//(130,278)
+	cv::Point Pt_2(135,273);//(130,278)
 	cv::Point Pt_3(198,290);//(198,295)
 
 	cv::Point Pt_4(471,250);//(475,253)
-	cv::Point Pt_5(532,257);//(536,251)
+	cv::Point Pt_5(532,255);//(536,251)
 	cv::Point Pt_6(544,290);//(548,294)
-	cv::Point Pt_7(603,275);//(603,279)
+	cv::Point Pt_7(605,275);//(603,279)
 
 	std::vector<cv::Point> Pt_vec;
 	cv::Point dst_pt;
@@ -69,9 +69,11 @@ int find_corner_test()
 
 	}
 
+	//Laplacian( src_gray, dst, CV_16S, 1, 1, 0, BORDER_DEFAULT ); 
+
 	for( int i = 0; i < 8; i++ )
 	{
-		find_max_grad_corner( o_gray_img, Pt_vec[i], dst_pt, 5 );
+		find_max_grad_corner( o_gray_img, Pt_vec[i], dst_pt, 7 );
 		cv::circle( o_clone_img,dst_pt,1,CV_RGB(0,255,0),1,8); 
 		printf("dst_pt%d = %d,%d\n",i,dst_pt.x,dst_pt.y);
 	}
@@ -105,12 +107,12 @@ int find_max_grad_corner( cv::Mat o_gray_img, cv::Point src_pt, cv::Point &dst_p
 {
 	int h = o_gray_img.rows;
 	int w = o_gray_img.cols;
-	float grad_xy = 0;
+	double grad_xy = 0;
 	//std::vector<float> grad_vec;
-	float max_grad = 0;
+	double max_grad = 0;
 
-	float sub_x =0;
-	float sub_y =0;
+	double sub_x =0;
+	double sub_y =0;
 
 	if( o_gray_img.empty() )
 	{
@@ -121,7 +123,8 @@ int find_max_grad_corner( cv::Mat o_gray_img, cv::Point src_pt, cv::Point &dst_p
 
 	max_grad = 0;
 
-	for( int r = src_pt.y-offset; r < src_pt.y+offset; r++ )
+	//sobelËã×Ó
+	/*for( int r = src_pt.y-offset; r < src_pt.y+offset; r++ )
 	{
 		for( int c = src_pt.x-offset; c < src_pt.x+offset; c++ )
 		{
@@ -136,6 +139,34 @@ int find_max_grad_corner( cv::Mat o_gray_img, cv::Point src_pt, cv::Point &dst_p
 			grad_xy = (float)sqrt( (double)( sub_x * sub_x + sub_y * sub_y ) );
 
 			if( grad_xy - max_grad > 1e-3 )
+			{
+				max_grad = grad_xy;
+				dst_pt.x = c;
+				dst_pt.y = r;
+
+			}
+			
+		}
+	}*/
+
+	//LaplaceËã×Ó
+	for( int r = src_pt.y-offset; r < src_pt.y+offset; r++ )
+	{
+		for( int c = src_pt.x-offset; c < src_pt.x+offset; c++ )
+		{
+			sub_x = (double)std::abs( o_gray_img.at<uchar>(r-1,c-1) + 
+							  o_gray_img.at<uchar>(r-1,c)    + 
+							  o_gray_img.at<uchar>(r-1,c+1)  +
+							  o_gray_img.at<uchar>(r,c-1)   +
+							  o_gray_img.at<uchar>(r,c+1)   +
+							  o_gray_img.at<uchar>(r+1,c-1) +  
+							  o_gray_img.at<uchar>(r+1,c)   + 
+							  o_gray_img.at<uchar>(r+1,c+1) - 
+							  o_gray_img.at<uchar>(r,c) * 8);
+
+			grad_xy = sqrt( (double)( sub_x * sub_x ) );
+
+			if( grad_xy > max_grad )
 			{
 				max_grad = grad_xy;
 				dst_pt.x = c;
