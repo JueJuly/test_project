@@ -656,7 +656,155 @@ double sum_matrix(cv::Mat o_mat)
 	return d_sum;
 
 }
+/*
+ *---------------------------------------------------------
+ * Brief：计算数组的和
+ * Return： double类型的数组和
+ * Param：
+ *		1、float *src_data	in	待计算的数组数据	
+ *		2、int   n_size		in	数组的大小
+ * Fan in：;
+ * Fan out：corner_correlation_score();
+ * Version：
+ *		v1.0	2017.5.16 create by July，the first version
+ *---------------------------------------------------------
+ */
+double compute_array_sum( float *src_data, int n_size )
+{
+	double d_ret_val = 0;
+	if( NULL == src_data )
+	{
+		d_ret_val = -1;
+		return d_ret_val;
+	}
 
+	d_ret_val = 0;
+
+	for( int i = 0; i < n_size; i++ )
+	{
+		d_ret_val += *(src_data+i);
+	}
+
+	return d_ret_val;
+}
+/*
+ *---------------------------------------------------------
+ * Brief：计算数组的标准差，其中flag是选择标志位，
+ *		  如果flag == 0，在计算方差时除以n-1之后再开方，
+ *		  如果flag == 1，在计算方差时除以n之后再开方，
+ *		  flag默认为0
+ * Return： double类型的方差值
+ * Param：
+ *		1、float *src_data	in	待计算的数组数据	
+ *		2、int   n_size		in	数组的大小
+ *		2、int   flag	    in	标志使用哪种计算方式
+ * Fan in：;
+ * Fan out：corner_correlation_score();
+ * Version：
+ *		v1.0	2017.5.16 create by July，the first version
+ *---------------------------------------------------------
+ */
+double compute_array_std( float *src_data,int n_size, int flag )
+{
+	double d_ret_val = 0;
+	double d_sum = 0;
+	double d_mean = 0;
+
+	if( NULL == src_data )
+	{
+		d_ret_val  -1;
+		return d_ret_val;
+	}
+
+	if( 0 == flag )
+	{
+		d_sum = compute_array_sum( src_data, n_size );
+		d_mean = d_sum / n_size;
+		d_ret_val = 0;
+
+		for( int i = 0; i < n_size; i++ )
+		{
+			d_ret_val += ( *(src_data+i) - d_mean ) * ( *(src_data+i) - d_mean );
+		}
+
+		d_ret_val /= (n_size - 1);
+
+		d_ret_val = (double)sqrtf((float)d_ret_val);
+
+	}
+	else if( 1 == flag )
+	{
+		d_sum = compute_array_sum( src_data, n_size );
+		d_mean = d_sum / n_size;
+		d_ret_val = 0;
+
+		for( int i = 0; i < n_size; i++ )
+		{
+			d_ret_val += ( *(src_data+i) - d_mean ) * ( *(src_data+i) - d_mean );
+		}
+
+		d_ret_val /= n_size;
+
+		d_ret_val = (double)sqrtf((float)d_ret_val);
+	}
+
+	return d_ret_val;
+}
+/*
+ *---------------------------------------------------------
+ * Brief：对矩阵标准差计算，flag是一个判断标志
+ *		  
+ * Return： 无
+ * Param：
+ *		1、cv::Mat  src_mat	in		输入的原始矩阵	
+ *		2、int		flag    inout	传出归一化后的矩阵
+ * Fan in：sum_matrix();
+ * Fan out：create_template();
+ * Version：
+ *		v1.0	2017.4.19 create by July，the first version
+ *---------------------------------------------------------
+ */
+double compute_matrix_std( cv::Mat src_mat, int flag )
+{
+	cv::Mat mean_mat(src_mat.rows, src_mat.cols, CV_32FC1 );
+	cv::Mat sub_mat(src_mat.rows, src_mat.cols, CV_32FC1 );
+
+	float *pf_data = NULL;
+	double d_ret_val = 0;
+
+	if( src_mat.empty() )
+	{
+		d_ret_val = -1;
+		return d_ret_val;
+	}
+
+	mean_matrix( src_mat, mean_mat );
+
+	sub_mat = src_mat - mean_mat;
+	d_ret_val = 0;
+
+	for( int h = 0; h < src_mat.rows; h++ )
+	{
+		pf_data = sub_mat.ptr<float>(h);
+
+		for( int w = 0; w < src_mat.cols; w++ )
+		{
+			d_ret_val += *(pf_data+w) * ( *(pf_data+w) );
+		}
+	}
+
+	if( 0 == flag )
+	{
+		d_ret_val /= (src_mat.rows * src_mat.cols - 1);
+	}
+	else if( 1 == flag )
+	{
+		d_ret_val /= src_mat.rows * src_mat.cols;
+	}
+
+	return (double)sqrtf((float)d_ret_val);
+
+}
 /*
  *---------------------------------------------------------
  * Brief：对矩阵进行归一化处理，即每一个元素除以所有元素的和
@@ -826,29 +974,367 @@ void non_max_suppress(cv::Mat src_mat, int n_region_len, double d_threshold, int
  * Brief：对角点坐标进行亚像素级处理
  * Return： 无
  * Param：
- *		1、grad_x_img				in		x轴方向的梯度图像	
- *		2、grad_y_img				in		y轴方向的梯度图像
- *		3、angle_img				in		梯度方向图像
- *		4、weight_img				in		梯度权重图像
- *		5、coords_points			in	    待处理的像素级角点坐标
- *		6、&corner_subpixel_coords	inout   处理后的亚像素级角点坐标
- *		7、r						in		局部矩形区域边长
+ *		1、cv::Mat					grad_x_img				in		x轴方向的梯度图像	
+ *		2、cv::Mat					grad_y_img				in		y轴方向的梯度图像
+ *		3、cv::Mat					angle_img				in		梯度方向图像
+ *		4、cv::Mat					weight_img				in		梯度权重图像
+ *		5、std::vector<cv::Point2d>	coords_points			in	    待处理的像素级角点坐标
+ *		6、std::vector<cv::Point2f>	&corner_subpixel_coords	inout   处理后的亚像素级角点坐标
+ *		7、std::vector<cv::Point2f> &corner_v1,				inout	角点方向的值，cos和sin值
+ *		8、std::vector<cv::Point2f> &corner_v2				inout	角点方向的值，cos和sin值
+ *		9、int						r						in		局部矩形区域边长
  * Fan in：
  * Fan out：find_corner();
  * Version：
- *		v1.0	2017.4.20 create by July
+ *		v1.0	2017.5.15 create by July
  *---------------------------------------------------------
  */
-void corner_coords_subpixel_refine( cv::Mat grad_x_img, cv::Mat grad_y_img, cv::Mat angle_img, cv::Mat weight_img, 
-										std::vector<cv::Point2d> corner_coords, std::vector<cv::Point2f> &corner_subpixel_coords, int r )
+void corner_coords_subpixel_refine( cv::Mat grad_x_img, cv::Mat grad_y_img,			\
+								        cv::Mat angle_img, cv::Mat weight_img,				\
+										std::vector<cv::Point2i> corner_coords,			\
+										std::vector<cv::Point2f> &corner_subpixel_coords, \
+										std::vector<cv::Point2f> &corner_v1,				\
+										std::vector<cv::Point2f> &corner_v2,int r )
 {
+	int n_height = grad_x_img.rows;
+	int n_width  = grad_x_img.cols;
+
+	cv::Point n_corner_pos_old(0,0);
+	cv::Point2f f_corner_pos_new(0,0);
+
+	std::vector<float> v1;
+	std::vector<float> v2;
+	cv::Point2f temp_pt;
+
+	float f_temp_val = 0;
+	float f_temp_val_v1 = 0;
+	float f_temp_val_v2 = 0;
+	float f_temp_norm = 0;
+
+	int n_ret_flag = -1;
+
+	int cu = 0;
+	int cv = 0;
+
+	float f_du = 0;
+	float f_dv = 0;
+
+	float f_d1 = 0;
+	float f_d2 = 0;
+
+	int start_x = 0; //start_x
+	int start_y = 0; //start_y
+	int end_x = 0; //end_x
+	int end_y = 0; //end_y
+
+	int w = 0;
+	int h = 0;
+
+	//中间变量
+	cv::Mat A1 = Mat::zeros(2,2,CV_32FC1); 
+	cv::Mat A2 = Mat::zeros(2,2,CV_32FC1); 
+
+	cv::Mat G  = Mat::zeros(2,2,CV_32FC1);
+	cv::Mat H  = Mat::zeros(2,2,CV_32FC1);
+
+	cv::Mat b  = Mat::zeros(2,1,CV_32FC1);
+
+	cv::Mat G_invert = Mat::zeros(2,2,CV_32FC1);
+
+	float *pf_w = new float[2];
+	memset( (float*)pf_w, 0, sizeof(float)*2 );
+
+	double *A1_eigen_val = new double[2];  //矩阵A1的特征值
+	double *A1_eigen_vec = new double[4];  //矩阵A1的特征向量
+						 
+	double *A2_eigen_val = new double[2];  //矩阵A2的特征值
+	double *A2_eigen_vec = new double[4];	//矩阵A2的特征向量
+
+	double *pd_A2 = new double[4]; //矩阵A2
+	double *pd_A1 = new double[4]; //矩阵A1
+
+	//对矩阵A2、特征值和特征向量初始化
+	memset((double*)pd_A2, 0, sizeof(double)*4);
+	memset((double*)A1_eigen_val, 0, sizeof(double)*2);
+	memset((double*)A1_eigen_vec, 0, sizeof(double)*4);
+
+	//对矩阵A1、特征值和特征向量初始化
+	memset((double*)pd_A1, 0, sizeof(double)*4);
+	memset((double*)A1_eigen_val, 0, sizeof(double)*2);
+	memset((double*)A1_eigen_vec, 0, sizeof(double)*4);
+
+	//像素的方向向量，临时变量
+	std::vector<float> o_vec;
+
+	//判断输进来的参数是否有为空的，如果有立即返回
+	if( grad_x_img.empty() || grad_y_img.empty() || angle_img.empty() || weight_img.empty() || corner_coords.empty() )
+	{
+		return ;
+	}
+
+	//角点方向数组初始化为0
+	for( int i = 0; i < corner_coords.size(); i++ )
+	{
+		corner_v1[i].x = 0;
+		corner_v1[i].y = 0;
+
+		corner_v2[i].x = 0;
+		corner_v2[i].y = 0;
+	}
+
+	//对所有的角点进行重新精简计算
+	for( int i = 0; i < corner_coords.size(); i++ )
+	{
+		cu = corner_coords[i].x;
+		cv = corner_coords[i].y;
+		
+		start_x = Max( cu - r, 0);
+		start_y = Max( cv - r, 0);
+
+		end_x = Min( cu+r, n_width-1 );
+		end_y = Min( cv+r, n_height-1 );
+
+		w = end_x - start_x + 1;
+		h = end_y - start_y + 1;
+
+		Rect rect(start_x, start_y, w, h);
+
+		Mat angle_sub = angle_img( rect );		//得到角度图像中的一部分
+		Mat weight_sub = weight_img( rect );	//得到权重图像中的一部分
+
+		//对子图像进行边沿方向计算，返回的数据保存在v1、v2中
+		n_ret_flag = edge_orientations( angle_sub, weight_sub, v1, v2 );
+
+		if( !n_ret_flag )
+		{
+			if( (0 == v1[0] && 0 == v1[1]) || (0 == v2[0] && 0 == v2[1]) )
+			{
+				continue;
+			}
+			else
+			{
+				temp_pt.x = v1[0];
+				temp_pt.y = v1[1];
+
+				corner_v1[i] = temp_pt;
+
+				temp_pt.x = v1[0];
+				temp_pt.y = v1[1];
+
+				corner_v2[i] = temp_pt;
+			} //end else
+
+		} // end if( !n_ret_flag )
+
+		for( int r = start_y; r < end_y; r++ )
+		{
+			for( int c = start_x; c < end_x; c++ )
+			{
+				o_vec[0] = grad_x_img.at<float>(r,c) ;
+				o_vec[1] = grad_y_img.at<float>(r,c) ;
+
+				if( compute_vec_norm( o_vec ) < 0.1f )
+				{
+					continue;
+				}
+
+				o_vec[0] /= compute_vec_norm( o_vec ) ;
+				o_vec[1] /= compute_vec_norm( o_vec ) ;
+
+				f_temp_val = o_vec[0] * v1[0] + o_vec[1] * v1[1];
+
+				//robust refinement of orientation 1
+				if( Abs( f_temp_val ) < 0.25 )
+				{
+					A1.at<float>(0,0) += grad_x_img.at<float>(r,c) * grad_x_img.at<float>(r,c);
+					A1.at<float>(0,1) += grad_x_img.at<float>(r,c) * grad_y_img.at<float>(r,c);
+
+					A1.at<float>(1,0) += grad_y_img.at<float>(r,c) * grad_x_img.at<float>(r,c);
+					A1.at<float>(1,1) += grad_y_img.at<float>(r,c) * grad_y_img.at<float>(r,c);
+				}
+
+				f_temp_val = o_vec[0] * v2[0] + o_vec[1] * v2[1];
+
+				//robust refinement of orientation 2
+				if( Abs( f_temp_val ) < 0.25 )
+				{
+					A2.at<float>(0,0) += grad_x_img.at<float>(r,c) * grad_x_img.at<float>(r,c);
+					A2.at<float>(0,1) += grad_x_img.at<float>(r,c) * grad_y_img.at<float>(r,c);
+
+					A2.at<float>(1,0) += grad_y_img.at<float>(r,c) * grad_x_img.at<float>(r,c);
+					A2.at<float>(1,1) += grad_y_img.at<float>(r,c) * grad_y_img.at<float>(r,c);
+				}
+
+			}// end for( c < w ) inner loop
+
+		}//end for( r < h ) outer loop
+
+		*(pd_A1+0) = A1.at<float>(0,0);
+		*(pd_A1+1) = A1.at<float>(0,1);
+		*(pd_A1+2) = A1.at<float>(1,0);
+		*(pd_A1+3) = A1.at<float>(1,1);
+
+		*(pd_A2+0) = A2.at<float>(0,0);
+		*(pd_A2+1) = A2.at<float>(0,1);
+		*(pd_A2+2) = A2.at<float>(1,0);
+		*(pd_A2+3) = A2.at<float>(1,1);
+
+		//计算矩阵的特征值和特征向量
+		Eigen_Jacbi( pd_A1, 2, A1_eigen_vec, A1_eigen_val, 0.001, 100 );
+		Eigen_Jacbi( pd_A2, 2, A2_eigen_vec, A2_eigen_val, 0.001, 100 );
+		
+		//更新角点的方向信息
+		temp_pt.x = (float)*(A1_eigen_vec+0);
+		temp_pt.y = (float)*(A1_eigen_vec+2);
+
+		corner_v1[i] = temp_pt;
+		v1[0] = temp_pt.x;
+		v1[1] = temp_pt.y;
+
+		temp_pt.x = (float)*(A2_eigen_vec+0);
+		temp_pt.y = (float)*(A2_eigen_vec+2);
+
+		corner_v2[i] = temp_pt;
+		v2[0] = temp_pt.x;
+		v2[1] = temp_pt.y;
+
+
+		for( int r = start_y; r < end_y; r++ )
+		{
+			for( int c = start_x; c < end_x; c++ )
+			{
+				o_vec[0] = grad_x_img.at<float>(r,c) ;
+				o_vec[1] = grad_y_img.at<float>(r,c) ;
+
+				if( compute_vec_norm( o_vec ) < 0.1f )
+				{
+					continue;
+				}
+
+				o_vec[0] /= compute_vec_norm( o_vec ) ;
+				o_vec[1] /= compute_vec_norm( o_vec ) ;
+
+				//robust subpixel corner estimation
+				if( r != cv || c != cu )
+				{
+					//compute rel. position of pixel and distance to vectors
+					*(pf_w+0) = c - cu;
+					*(pf_w+1) = r - cv;
+					
+					//计算pf_w与v1运算后的范数，等同matlab中的norm
+					f_temp_val = *(pf_w+0) * v1[0] + *(pf_w+1) * v1[1] ;
+					*(pf_w+0) = *(pf_w+0) - f_temp_val * v1[0];
+					*(pf_w+1) = *(pf_w+1) - f_temp_val * v1[1];
+					f_d1 = *(pf_w+0) * (*(pf_w+0)) + *(pf_w+1) * (*(pf_w+1));
+					f_d1 = sqrtf(f_d1);
+
+					//计算pf_w与v2运算后的范数，
+					f_temp_val = *(pf_w+0) * v2[0] + *(pf_w+1) * v2[1] ;
+					*(pf_w+0) = *(pf_w+0) - f_temp_val * v2[0];
+					*(pf_w+1) = *(pf_w+1) - f_temp_val * v2[1];
+					f_d1 = *(pf_w+0) * (*(pf_w+0)) + *(pf_w+1) * (*(pf_w+1));
+					f_d1 = sqrtf(f_d1);
+
+					f_temp_val_v1 = o_vec[0] * v1[0] + o_vec[1] * v1[1];
+					f_temp_val_v2 = o_vec[0] * v2[0] + o_vec[1] * v2[1];
+
+					//if pixel corresponds with either of the vectors / directions
+					if( ( f_d1 < 3 && Abs(f_temp_val_v1) < 0.25 ) || ( f_d2 < 3 && Abs(f_temp_val_v2) < 0.25) )
+					{
+						f_du = grad_x_img.at<float>(r,c);
+						f_dv = grad_y_img.at<float>(r,c);
+
+						H.at<float>(0,0) = f_du * f_du;
+						H.at<float>(0,1) = f_du * f_dv;
+						H.at<float>(1,0) = f_du * f_dv;
+						H.at<float>(1,1) = f_dv * f_dv;
+
+						G = G + H;
+
+						b.at<float>(0,0) += H.at<float>(0,0) * c + H.at<float>(0,1) * r;
+						b.at<float>(1,0) += H.at<float>(1,0) * c + H.at<float>(1,1) * r;
+
+					}
+
+				} //end if( r != cv || c != cu )
+
+			} //end for( c < end_x ) inner loop
+
+		}//end for( r < end_y ) outer loop
+
+		//计算矩阵G的秩，如果f_temp_val不等于0等
+		f_temp_val = G.at<float>(0,0) * G.at<float>(1,1) - G.at<float>(0,1) * G.at<float>(1,0);
+
+		if( Abs( f_temp_val ) > 0.001 )
+		{
+			n_corner_pos_old = corner_coords[i];
+
+			//求矩阵G的逆矩阵，本来是计算G\b = G_inver .* b的，注意矩阵G左除向量b
+			// 公式如下：
+			//
+			//		 | a   b |                         1	  | d   -b |
+			//	G =  | 	     |	===>  G_invert = ——————*|	       |
+			//		 | c   d |				       ad - bc	  | -c   a |
+			//
+			//-------------------------------------------------------------
+			G_invert.at<float>(0,0) = G.at<float>(1,1) / (f_temp_val);
+			G_invert.at<float>(0,1) = -1 * G.at<float>(0,1) / (f_temp_val);
+			G_invert.at<float>(1,0) = -1 * G.at<float>(1,0) / (f_temp_val);
+			G_invert.at<float>(1,1) = G.at<float>(0,0) / (f_temp_val);
+
+			f_corner_pos_new.x = G_invert.at<float>(0,0) * b.at<float>(0,0) + G_invert.at<float>(0,1) * b.at<float>(1,0); 
+			f_corner_pos_new.y = G_invert.at<float>(1,0) * b.at<float>(0,0) + G_invert.at<float>(1,1) * b.at<float>(1,0); 
+
+			corner_subpixel_coords[i].x = f_corner_pos_new.x;
+			corner_subpixel_coords[i].y = f_corner_pos_new.y;
+
+			f_temp_norm = (f_corner_pos_new.x - n_corner_pos_old.x)*(f_corner_pos_new.x - n_corner_pos_old.x) + \
+						  (f_corner_pos_new.y - n_corner_pos_old.y)*(f_corner_pos_new.y - n_corner_pos_old.y);
+
+			f_temp_norm = sqrtf( f_temp_norm );
+
+			if( f_temp_norm > 4 )
+			{
+				temp_pt.x = 0;
+				temp_pt.y = 0;
+
+				corner_v1[i] = temp_pt;
+				corner_v2[i] = temp_pt;
+			}
+
+		} //end if ( rank(G) == 2 )
+		else
+		{
+			//更新角点的方向信息
+			temp_pt.x = 0;
+			temp_pt.y = 0;
+
+			corner_v1[i] = temp_pt;
+			corner_v2[i] = temp_pt;
+			
+		}
+
+
+	} // end for(i < corner_coords.size())
+
+	delete []pd_A1;
+	delete []pd_A2;
+
+	delete []A1_eigen_val;
+	delete []A1_eigen_vec;
+
+	delete []A2_eigen_val;
+	delete []A2_eigen_vec;
+
+	delete []pf_w;
+
 	return ;
 }
 
 /*
  *---------------------------------------------------------
  * Brief：角点相关评分，根据梯度的权重和x，y方向的角度进行评分
- * Return： 无
+ * Return： float类型的评分结果
  * Param：
  *		1、sub_srcImg				in			原图像	
  *		2、weight_img				in			梯度权重图像
@@ -860,13 +1346,76 @@ void corner_coords_subpixel_refine( cv::Mat grad_x_img, cv::Mat grad_y_img, cv::
  *		v1.0	2017.4.20 create by July
  *---------------------------------------------------------
  */
-void corner_correlation_score( cv::Mat sub_srcImg, cv::Mat weight_img, std::vector<ws_Data_f_2d> &coords_pts_v1, \
-							      std::vector<ws_Data_f_2d> &coords_pts_v2 )
+float corner_correlation_score( cv::Mat sub_srcImg, cv::Mat weight_img,    \
+							       ws_Data_f_2d &coords_pts_v1, \
+							       ws_Data_f_2d &coords_pts_v2 )
 {
+	float f_score = 0.0f;
+	int n_height = weight_img.rows;
+	int n_width  = weight_img.cols;
+
+	float f_temp_data = 0;
+	float f_norm_1 = 0;
+	float f_norm_2 = 0;
+
+	//图像宽度的一半
+	int n_half_width = (int)(n_width+1) / 2 ;
+	//center
+	float *f_c = new float[2];
+	memset( (float*)f_c, n_half_width, sizeof(float)*2 );
+
+	float *f_p1 = new float[2];
+	float *f_p2 = new float[2];
+	float *f_p3 = new float[2];
+
+	memset( (float*)f_p1, 0, sizeof(float)*2 );
+	memset( (float*)f_p2, 0, sizeof(float)*2 );
+	memset( (float*)f_p3, 0, sizeof(float)*2 );
+
+	float *img_filter = new float[n_height*n_width];
+	memset( (float*)img_filter, -1, sizeof(float)*n_height*n_width );
+
+	for( int h = 0; h < n_height; h++ )
+	{
+		for( int w = 0; w < n_width; w++ )
+		{
+			f_p1[0] = h - f_c[0];
+			f_p1[1] = w - f_c[0];
+
+			f_temp_data = f_p1[0] * coords_pts_v1.x + f_p1[1] * coords_pts_v1.y;
+			f_p2[0] = f_temp_data * coords_pts_v1.x;
+			f_p2[1] = f_temp_data * coords_pts_v1.y;
+
+			f_temp_data = f_p1[0] * coords_pts_v2.x + f_p1[1] * coords_pts_v2.y;
+			f_p3[0] = f_temp_data * coords_pts_v2.x;
+			f_p3[1] = f_temp_data * coords_pts_v2.y;
+
+			f_norm_1 = (f_p1[0] - f_p2[0]) * (f_p1[0] - f_p2[0]) + (f_p1[1] - f_p2[1]) * (f_p1[1] - f_p2[1]);
+			f_norm_2 = (f_p1[0] - f_p3[0]) * (f_p1[0] - f_p3[0]) + (f_p1[1] - f_p3[1]) * (f_p1[1] - f_p3[1]);
+
+			if( f_norm_1 <= 1.5 || f_norm_2 <= 1.5 )
+			{
+				*(img_filter + h * n_width + w) = +1;
+			}
+
+		}//end for w
+
+	}//end for h
+
+
+
+	delete []f_c;
+	delete []f_p1;
+	delete []f_p2;
+	delete []f_p3;
 
 }
 
-
+//自定义的比较函数,升序排序
+static bool myCompare(const float a1,const float a2)
+{
+    return a1 <= a2;
+}
 /*
  *---------------------------------------------------------
  * Brief：寻找梯度方向中两个最大峰值位置，首先是将窗口内所有
@@ -894,8 +1443,12 @@ int edge_orientations( cv::Mat img_angle, cv::Mat img_weight, cv::vector<float> 
 	std::vector<float> angle_hist;
 	std::vector<ws_Data_f_2d> modes;
 	std::vector<ws_Data_f_3d> modes_expand;
+	ws_Data_f_3d temp_data;
+	std::vector<float> temp_angle_vec;
 
 	std::vector<float> smoothed_hist;
+	float delta_angle = 0;
+
 
 	if( img_angle.empty() )
 	{
@@ -958,9 +1511,34 @@ int edge_orientations( cv::Mat img_angle, cv::Mat img_weight, cv::vector<float> 
 
 	for( int i = 0; i < modes.size(); i++ )
 	{
+		temp_angle_vec.push_back( (modes[i].x - 1) * C_PI / n_bin_num );
+	}
+
+	sort( temp_angle_vec.begin(), temp_angle_vec.end(), myCompare );
+
+	for( int i = 0; i < 2; i++ )
+	{
+		//modes_expand
+		temp_data.x = modes[i].x;
+		temp_data.y = modes[i].y;
+		temp_data.z = temp_angle_vec[i];
+
+		modes_expand.push_back( temp_data );
 
 	}
 
+	delta_angle = Min( (modes_expand[1].z - modes_expand[0].z), (modes_expand[0].z + C_PI - modes_expand[1].z) );
+
+	if( delta_angle < 0.3 )
+	{
+		return -1;
+	}
+
+	v1.push_back( cosf(modes_expand[0].z) );
+	v1.push_back( sinf(modes_expand[0].z) );
+
+	v2.push_back( cosf(modes_expand[1].z) );
+	v2.push_back( sinf(modes_expand[1].z) );
 
 	return 0;
 }
@@ -1325,3 +1903,272 @@ int sort_mode( std::vector<float> &mode_col_1, std::vector<float> &mode_col_2 )
 	return 0;
 
  }
+
+  
+/*
+ *---------------------------------------------------------
+ * Brief:	求实对称矩阵的特征值及特征向量的雅克比法  
+ *			利用雅格比(Jacobi)方法求实对称矩阵的全部特征值及特征向量
+ * Return： bool 型
+ * Param：
+ *		1、double	*pMatrix			in          长度为n*n的数组，存放实对称矩阵 
+ *		2、int		nDim                in			矩阵的阶数n  
+ *		3、double	*pdblVects          inout		长度为n*n的数组，返回特征向量(按列存储) 
+ *		4、double	*pdbEigenValues		inout		特征值数组
+ *		4、double	dbEps               in			精度要求  
+ *		5、int		nJt                 in		   整型变量，控制最大迭代次数  
+ *		6、          
+ * Fan in：
+ * Fan out：find_corner();
+ * Version：
+ *		v1.0	2017.5.15 create by July
+ *---------------------------------------------------------
+ */
+
+bool Eigen_Jacbi(double * pMatrix,int nDim, double *pdblVects, double *pdbEigenValues, double dbEps,int nJt)  
+{  
+    for(int i = 0; i < nDim; i ++)   
+    {     
+        pdblVects[i*nDim+i] = 1.0f;   
+        for(int j = 0; j < nDim; j ++)   
+        {   
+            if(i != j)     
+                pdblVects[i*nDim+j]=0.0f;   
+        }   
+    }   
+  
+    int nCount = 0;     //迭代次数  
+	double temp_val = 0;
+
+	double *temp_vec = new double[2*2];
+	memset( (double*)temp_vec, 0, sizeof(double)*4 );
+
+	*(temp_vec + 0) = *( pMatrix + 0 );
+	*(temp_vec + 1) = *( pMatrix + 1 );
+	*(temp_vec + 2) = *( pMatrix + 2 );
+	*(temp_vec + 3) = *( pMatrix + 3 );
+
+    while(1)  
+    {  
+        //在pMatrix的非对角线上找到最大元素  
+        double dbMax = pMatrix[1];  
+        int nRow = 0;  
+        int nCol = 1;  
+        for (int i = 0; i < nDim; i ++)          //行  
+        {  
+            for (int j = 0; j < nDim; j ++)      //列  
+            {  
+                double d = fabs(pMatrix[i*nDim+j]);   
+  
+                if((i!=j) && (d> dbMax))   
+                {   
+                    dbMax = d;     
+                    nRow = i;     
+                    nCol = j;   
+                }   
+            }  
+        }  
+  
+        if(dbMax < dbEps)     //精度符合要求   
+            break;    
+  
+        if(nCount > nJt)       //迭代次数超过限制  
+            break;  
+  
+        nCount++;  
+  
+        double dbApp = pMatrix[nRow*nDim+nRow];  
+        double dbApq = pMatrix[nRow*nDim+nCol];  
+        double dbAqq = pMatrix[nCol*nDim+nCol];  
+  
+        //计算旋转角度  
+        double dbAngle = 0.5*atan2(-2*dbApq,dbAqq-dbApp);  
+        double dbSinTheta = sin(dbAngle);  
+        double dbCosTheta = cos(dbAngle);  
+        double dbSin2Theta = sin(2*dbAngle);  
+        double dbCos2Theta = cos(2*dbAngle);  
+  
+        pMatrix[nRow*nDim+nRow] = dbApp*dbCosTheta*dbCosTheta +   
+            dbAqq*dbSinTheta*dbSinTheta + 2*dbApq*dbCosTheta*dbSinTheta;  
+        pMatrix[nCol*nDim+nCol] = dbApp*dbSinTheta*dbSinTheta +   
+            dbAqq*dbCosTheta*dbCosTheta - 2*dbApq*dbCosTheta*dbSinTheta;  
+        pMatrix[nRow*nDim+nCol] = 0.5*(dbAqq-dbApp)*dbSin2Theta + dbApq*dbCos2Theta;  
+        pMatrix[nCol*nDim+nRow] = pMatrix[nRow*nDim+nCol];  
+  
+        for(int i = 0; i < nDim; i ++)   
+        {   
+            if((i!=nCol) && (i!=nRow))   
+            {   
+                int u = i*nDim + nRow;  //p    
+                int w = i*nDim + nCol;  //q  
+                dbMax = pMatrix[u];   
+                pMatrix[u]= pMatrix[w]*dbSinTheta + dbMax*dbCosTheta;   
+                pMatrix[w]= pMatrix[w]*dbCosTheta - dbMax*dbSinTheta;   
+            }   
+        }   
+  
+        for (int j = 0; j < nDim; j ++)  
+        {  
+            if((j!=nCol) && (j!=nRow))   
+            {   
+                int u = nRow*nDim + j;  //p  
+                int w = nCol*nDim + j;  //q  
+                dbMax = pMatrix[u];   
+                pMatrix[u]= pMatrix[w]*dbSinTheta + dbMax*dbCosTheta;   
+                pMatrix[w]= pMatrix[w]*dbCosTheta - dbMax*dbSinTheta;   
+            }   
+        }  
+  
+        //计算特征向量  
+        for(int i = 0; i < nDim; i ++)   
+        {   
+            int u = i*nDim + nRow;      //p     
+            int w = i*nDim + nCol;      //q  
+            dbMax = pdblVects[u];   
+            pdblVects[u] = pdblVects[w]*dbSinTheta + dbMax*dbCosTheta;   
+            pdblVects[w] = pdblVects[w]*dbCosTheta - dbMax*dbSinTheta;   
+        }   
+  
+    }  
+  
+    //对特征值进行排序以及重新排列特征向量,特征值即pMatrix主对角线上的元素  
+    std::map<double,int> mapEigen;  
+    for(int i = 0; i < nDim; i ++)   
+    {     
+        pdbEigenValues[i] = pMatrix[i*nDim+i];  
+  
+        mapEigen.insert(make_pair( pdbEigenValues[i],i ) );  
+    }   
+  
+    double *pdbTmpVec = new double[nDim*nDim];  
+    std::map<double,int>::reverse_iterator iter = mapEigen.rbegin();  
+
+    for (int j = 0; iter != mapEigen.rend(),j < nDim; ++iter,++j)  
+    {  
+        for (int i = 0; i < nDim; i ++)  
+        {  
+            pdbTmpVec[i*nDim+j] = pdblVects[i*nDim + iter->second];  
+        }  
+  
+        //特征值重新排列  
+        pdbEigenValues[j] = iter->first;  
+    }  
+  
+    //设定正负号  
+    for(int i = 0; i < nDim; i ++)   
+    {  
+        double dSumVec = 0;  
+        for(int j = 0; j < nDim; j ++)  
+            dSumVec += pdbTmpVec[j * nDim + i];  
+        if(dSumVec<0)  
+        {  
+            for(int j = 0;j < nDim; j ++)  
+                pdbTmpVec[j * nDim + i] *= -1;  
+        }  
+    }  
+
+	if( 2 == nDim )
+	{
+		if( ( *(pdbEigenValues + 0 ) - *(pdbEigenValues + 1 ) ) > 0.001 )
+		{
+			temp_val = *( pdbEigenValues + 1 );
+			*( pdbEigenValues + 1 ) = *( pdbEigenValues + 0 );
+			*( pdbEigenValues + 0 ) = temp_val;
+		}
+
+		if( *(pdbTmpVec+1) > 0 )
+		{
+			temp_val = *( pdbTmpVec+0 );
+			*( pdbTmpVec+0 ) = Abs( *( pdbTmpVec+1 ) );
+			*( pdbTmpVec+1 ) = Abs( temp_val );
+
+			temp_val = *( pdbTmpVec+3 );
+			*( pdbTmpVec+3 ) = Abs( *( pdbTmpVec+2 ) ) * (-1);
+			*( pdbTmpVec+2 ) = Abs( temp_val );
+
+		}
+		else if( *(pdbTmpVec+1) < 0 )
+		{
+			temp_val = *( pdbTmpVec+0 );
+			*( pdbTmpVec+0 ) = Abs( *( pdbTmpVec+1 ) );
+			*( pdbTmpVec+1 ) = Abs( temp_val ) * (-1);
+
+			temp_val = *( pdbTmpVec+3 );
+			*( pdbTmpVec+3 ) = Abs( *( pdbTmpVec+2 ) ) * (-1);
+			*( pdbTmpVec+2 ) = Abs( temp_val ) * (-1);
+
+		}
+
+		temp_val = ( *( temp_vec+0 ) ) * ( *( pdbTmpVec+0 ) ) + ( *( temp_vec+1 ) ) * ( *( pdbTmpVec+2 ) );
+
+		if( Abs( temp_val - *( pdbTmpVec+0 ) * ( *(pdbEigenValues + 0 ) )  ) > 0.001 )
+		{
+			*( pdbTmpVec+0 ) = *( pdbTmpVec+0 ) * (-1) ;
+			*( pdbTmpVec+3 ) = *( pdbTmpVec+3 ) * (-1) ;
+		}
+	}
+  
+    memcpy(pdblVects,pdbTmpVec,sizeof(double)*nDim*nDim);  
+    delete []pdbTmpVec;  
+
+	delete []temp_vec;
+  
+    return 1;  
+}  
+
+int Jacobi(double matrix[][2], double vec[][2], int maxt, int n)  
+{  
+   
+ int it, p, q, i, j; // 函数返回值  
+ double temp, t, cn, sn, max_element, vip, viq, aip, aiq, apj, aqj; // 临时变量  
+ for (it = 0; it < maxt; ++it)  
+ {  
+  max_element = 0;  
+  for (p = 0; p < n-1; ++p)  
+  {  
+   for (q = p + 1; q < n; ++q)  
+   {  
+    if (fabs(matrix[p][q]) > max_element) // 记录非对角线元素最大值  
+     max_element = fabs(matrix[p][q]);  
+    if (fabs(matrix[p][q]) > EPS) // 非对角线元素非0时才执行Jacobi变换  
+    {  
+     // 计算Givens旋转矩阵的重要元素:cos(theta), 即cn, sin(theta), 即sn  
+     temp = (matrix[q][q] - matrix[p][p]) / matrix[p][q] / 2.0;  
+     if (temp >= 0) // t为方程 t^2 + 2*t*temp - 1 = 0的根, 取绝对值较小的根为t  
+      t = -temp + sqrt(1 + temp * temp);  
+     else  
+      t = -temp - sqrt(1 + temp * temp);  
+     cn = 1 / sqrt(1 + t * t);  
+     sn = t * cn;  
+     // Givens旋转矩阵之转置左乘matrix, 即更新matrix的p行和q行  
+     for (j = 0; j < n; ++j)  
+     {  
+      apj = matrix[p][j];  
+      aqj = matrix[q][j];  
+      matrix[p][j] = cn * apj - sn * aqj;  
+      matrix[q][j] = sn * apj + cn * aqj;  
+     }  
+     // Givens旋转矩阵右乘matrix, 即更新matrix的p列和q列  
+     for (i = 0; i < n; ++i)  
+     {  
+      aip = matrix[i][p];  
+      aiq = matrix[i][q];  
+      matrix[i][p] = cn * aip - sn * aiq;  
+      matrix[i][q] = sn * aip + cn * aiq;  
+     }  
+     // 更新特征向量存储矩阵vec, vec=J0×J1×J2...×Jit, 所以每次只更新vec的p, q两列  
+     for (i = 0; i < n; ++i)  
+     {  
+      vip = vec[i][p];  
+      viq = vec[i][q];  
+      vec[i][p] = cn * vip - sn * viq;  
+      vec[i][q] = sn * vip + cn * viq;  
+     }  
+    }    
+   }   
+  }   
+  if (max_element <= EPS) // 非对角线元素已小于收敛标准，迭代结束  
+   return 1;  
+ }  
+ return 0;  
+}

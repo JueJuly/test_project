@@ -39,12 +39,22 @@ using namespace std;
 
 #endif
 
+#ifndef Abs
+#define Abs(a) ( (a) > 0 ? (a) : (-a) )
+
+#endif
+
 //const double C_PI = 3.141593;
 
 #ifndef  C_PI 3.141593
 #define  C_PI 3.141593
 
 #endif // ! C_PI 3.141593
+
+#ifndef EPS
+#define EPS 0.00001  
+
+#endif
 
 /*---------------
 *定义2维、3维的数据结构 

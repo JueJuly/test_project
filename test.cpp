@@ -40,8 +40,105 @@ int _tmain(int argc, _TCHAR* argv[])
 	//test1();
 	//Stack_Point2d_test();
 	//Image2double_test();
+	cv::Mat A1 = Mat::zeros(2,2,CV_32FC1);
+	float *eigen_val = NULL;
+	A1.at<float>(0,0) = 3;
+	A1.at<float>(0,1) = 5;
+	A1.at<float>(1,0) = 5;
+	A1.at<float>(1,1) = 7;
+	cv::Mat A1_eigen_val ;//= Mat::zeros(2,2,CV_32FC1);
+	cv::Mat A1_eigen_vec ;//= Mat::zeros(2,2,CV_32FC1);
+	cv::eigen( A1,A1_eigen_val, A1_eigen_vec, 1, 0 );
+	//cv::eigen2x2( (float*)A1.data,eigen_val, 
+	cout << "A1 = " << endl << A1 << endl;
+	cout << "A1_eigen_val = " << endl << A1_eigen_val << endl;
+	cout << "A1_eigen_vec = " << endl << A1_eigen_vec << endl;
 
-	find_corner_test();
+	double *A2 = new double[2*2];
+	double *A2_eigen_vec = new double[2*2];
+	double *A2_temp_vec = new double[2*2];
+	double *A2_eigen_val = new double[2];
+
+	double A3[2][2] = {3,5,5,7};
+	double A3_eigen_vec[2][2] = {0};
+	double temp_val = 0;
+
+	memset( (double*)A2_temp_vec, 0, sizeof(double)*4 );
+	memset( (double*)A2_eigen_vec, 0, sizeof(double)*4 );
+	memset( (double*)A2_eigen_val, 0, sizeof(double)*2 );
+
+	*( A2 + 0 ) = 4.5;
+	*( A2 + 1 ) = 7.5;
+	*( A2 + 2 ) = 7.5;
+	*( A2 + 3 ) = 5.3;
+
+	*(A2_temp_vec + 0) = *( A2 + 0 );
+	*(A2_temp_vec + 1) = *( A2 + 1 );
+	*(A2_temp_vec + 2) = *( A2 + 2 );
+	*(A2_temp_vec + 3) = *( A2 + 3 );
+
+	Eigen_Jacbi( A2, 2, A2_eigen_vec, A2_eigen_val, 0.001, 100 );
+
+	/*if( ( *(A2_eigen_val + 0 ) - *(A2_eigen_val + 1 ) ) > 0.001 )
+	{
+		temp_val = *( A2_eigen_val + 1 );
+		*( A2_eigen_val + 1 ) = *( A2_eigen_val + 0 );
+		*( A2_eigen_val + 0 ) = temp_val;
+	}
+
+	if( *(A2_eigen_vec+1) > 0 )
+	{
+		temp_val = *( A2_eigen_vec+0 );
+		*( A2_eigen_vec+0 ) = Abs( *( A2_eigen_vec+1 ) );
+		*( A2_eigen_vec+1 ) = Abs( temp_val );
+
+		temp_val = *( A2_eigen_vec+3 );
+		*( A2_eigen_vec+3 ) = Abs( *( A2_eigen_vec+2 ) ) * (-1);
+		*( A2_eigen_vec+2 ) = Abs( temp_val );
+
+	}
+	else if( *(A2_eigen_vec+1) < 0 )
+	{
+		temp_val = *( A2_eigen_vec+0 );
+		*( A2_eigen_vec+0 ) = Abs( *( A2_eigen_vec+1 ) );
+		*( A2_eigen_vec+1 ) = Abs( temp_val ) * (-1);
+
+		temp_val = *( A2_eigen_vec+3 );
+		*( A2_eigen_vec+3 ) = Abs( *( A2_eigen_vec+2 ) ) * (-1);
+		*( A2_eigen_vec+2 ) = Abs( temp_val ) * (-1);
+
+	}
+
+	temp_val = ( *( A2_temp_vec+0 ) ) * ( *( A2_eigen_vec+0 ) ) + ( *( A2_temp_vec+1 ) ) * ( *( A2_eigen_vec+2 ) );
+
+	if( Abs( temp_val - *( A2_eigen_vec+0 ) * ( *(A2_eigen_val + 0 ) )  ) > 0.001 )
+	{
+		*( A2_eigen_vec+0 ) = *( A2_eigen_vec+0 ) * (-1) ;
+		*( A2_eigen_vec+3 ) = *( A2_eigen_vec+3 ) * (-1) ;
+	}*/
+
+
+
+
+
+	cout << "A2_eigen_vec = " << endl;
+	cout << "[" <<  *(A2_eigen_vec + 0 ) << "," << *(A2_eigen_vec + 1) << "；]" << endl;
+	cout << "[" <<  *(A2_eigen_vec + 2 ) << "," << *(A2_eigen_vec + 3) << "；]" << endl;
+
+	cout << "A2_eigen_val = " << endl;
+	cout << "[" <<  *(A2_eigen_val + 0 ) << "," << *(A2_eigen_val + 1) << "；]" << endl;
+
+	Jacobi(A3,A3_eigen_vec,100,2);
+
+	cout << "A3_eigen_vec = " << endl;
+	cout << "[" <<  A3_eigen_vec[0][0] << "," << A3_eigen_vec[0][1] << ";]" << endl;
+	cout << "[" <<  A3_eigen_vec[1][0] << "," << A3_eigen_vec[1][1] << "]" << endl;
+
+
+	//find_corner_test();
+	delete []A2_eigen_val;
+	delete []A2_eigen_vec;
+	delete []A2_temp_vec;
 	return 0;
 
 	int hist[14] = {1,24,2,4,5,7,23,7,23,12,6,5,34,27};
