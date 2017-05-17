@@ -78,7 +78,8 @@ int _tmain(int argc, _TCHAR* argv[])
 	*(A2_temp_vec + 3) = *( A2 + 3 );
 
 	Eigen_Jacbi( A2, 2, A2_eigen_vec, A2_eigen_val, 0.001, 100 );
-
+	temp_val = atan2f(3,4);
+	int n_temp_val = round(4.500);
 	/*if( ( *(A2_eigen_val + 0 ) - *(A2_eigen_val + 1 ) ) > 0.001 )
 	{
 		temp_val = *( A2_eigen_val + 1 );

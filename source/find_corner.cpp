@@ -73,7 +73,7 @@ int find_corner_test()
 
 	for( int i = 0; i < 8; i++ )
 	{
-		find_max_grad_corner( o_gray_img, Pt_vec[i], dst_pt, 7 );
+		find_max_grad_corner( o_gray_img, Pt_vec[i], dst_pt, 7, LAPLACE );
 		cv::circle( o_clone_img,dst_pt,1,CV_RGB(0,255,0),1,8); 
 		printf("dst_pt%d = %d,%d\n",i,dst_pt.x,dst_pt.y);
 	}
@@ -103,7 +103,26 @@ int find_corner_test()
 	return 0;
 }
 
-int find_max_grad_corner( cv::Mat o_gray_img, cv::Point src_pt, cv::Point &dst_pt, const int offset )
+ /*
+ *----------------------------------------------------------
+ * Brief：查找梯度最大的角点，以src_pt点为中心点，
+		  上下左右偏移offset个像素区域内查找梯度最大的点，
+//将找到的点返回到dst_pt变量中
+ * Return: int类型数据
+ * Param：
+ *		1、cv::Mat					o_gray_img		in		输入的原始灰度图像
+ *		2、cv::Point				src_pt			in		原始角点坐标
+ *		3、cv::Point				&dst_pt			inout	梯度最大的角点坐标
+ *		4、const int				offset			in		偏移量，默认为5
+ *		5、const enum OperatorType  operator_type	in		计算梯度时使用的算子，默认是laplace
+ * Fan in: 
+ * Fan out：无
+ * Version:
+ *		v1.0	2017.4.19 create by July，the first version
+ *----------------------------------------------------------
+ */
+int find_max_grad_corner( cv::Mat o_gray_img, cv::Point src_pt, cv::Point &dst_pt, 
+							const int offset,const enum OperatorType  operator_type )
 {
 	int h = o_gray_img.rows;
 	int w = o_gray_img.cols;
@@ -124,58 +143,64 @@ int find_max_grad_corner( cv::Mat o_gray_img, cv::Point src_pt, cv::Point &dst_p
 	max_grad = 0;
 
 	//sobel算子
-	/*for( int r = src_pt.y-offset; r < src_pt.y+offset; r++ )
+	if( SOBEL == operator_type )
 	{
-		for( int c = src_pt.x-offset; c < src_pt.x+offset; c++ )
+		for( int r = src_pt.y-offset; r < src_pt.y+offset; r++ )
 		{
-			sub_x = std::abs( o_gray_img.at<uchar>(r-1,c+1) - o_gray_img.at<uchar>(r-1,c-1) + 
-							 (o_gray_img.at<uchar>(r,c+1) - o_gray_img.at<uchar>(r,c-1) ) * 2 +
-							  o_gray_img.at<uchar>(r+1,c+1) - o_gray_img.at<uchar>(r+1,c-1) );
-
-			sub_y = std::abs( o_gray_img.at<uchar>(r+1,c-1) - o_gray_img.at<uchar>(r-1,c-1) + 
-							  (o_gray_img.at<uchar>(r+1,c) - o_gray_img.at<uchar>(r-1,c) )* 2 +
-							  o_gray_img.at<uchar>(r+1,c+1) - o_gray_img.at<uchar>(r-1,c+1) );
-
-			grad_xy = (float)sqrt( (double)( sub_x * sub_x + sub_y * sub_y ) );
-
-			if( grad_xy - max_grad > 1e-3 )
+			for( int c = src_pt.x-offset; c < src_pt.x+offset; c++ )
 			{
-				max_grad = grad_xy;
-				dst_pt.x = c;
-				dst_pt.y = r;
+				sub_x = std::abs( o_gray_img.at<uchar>(r-1,c+1) - o_gray_img.at<uchar>(r-1,c-1) + 
+					(o_gray_img.at<uchar>(r,c+1) - o_gray_img.at<uchar>(r,c-1) ) * 2 +
+					o_gray_img.at<uchar>(r+1,c+1) - o_gray_img.at<uchar>(r+1,c-1) );
 
-			}
-			
-		}
-	}*/
+				sub_y = std::abs( o_gray_img.at<uchar>(r+1,c-1) - o_gray_img.at<uchar>(r-1,c-1) + 
+					(o_gray_img.at<uchar>(r+1,c) - o_gray_img.at<uchar>(r-1,c) )* 2 +
+					o_gray_img.at<uchar>(r+1,c+1) - o_gray_img.at<uchar>(r-1,c+1) );
+
+				grad_xy = (float)sqrt( (double)( sub_x * sub_x + sub_y * sub_y ) );
+
+				if( grad_xy - max_grad > 1e-3 )
+				{
+					max_grad = grad_xy;
+					dst_pt.x = c;
+					dst_pt.y = r;
+
+				}
+
+			}//end for c
+		}//end for r
+	}//end if SOBEL
 
 	//Laplace算子
-	for( int r = src_pt.y-offset; r < src_pt.y+offset; r++ )
+	if( LAPLACE == operator_type )
 	{
-		for( int c = src_pt.x-offset; c < src_pt.x+offset; c++ )
+		for( int r = src_pt.y-offset; r < src_pt.y+offset; r++ )
 		{
-			sub_x = (double)std::abs( o_gray_img.at<uchar>(r-1,c-1) + 
-							  o_gray_img.at<uchar>(r-1,c)    + 
-							  o_gray_img.at<uchar>(r-1,c+1)  +
-							  o_gray_img.at<uchar>(r,c-1)   +
-							  o_gray_img.at<uchar>(r,c+1)   +
-							  o_gray_img.at<uchar>(r+1,c-1) +  
-							  o_gray_img.at<uchar>(r+1,c)   + 
-							  o_gray_img.at<uchar>(r+1,c+1) - 
-							  o_gray_img.at<uchar>(r,c) * 8);
-
-			grad_xy = sqrt( (double)( sub_x * sub_x ) );
-
-			if( grad_xy > max_grad )
+			for( int c = src_pt.x-offset; c < src_pt.x+offset; c++ )
 			{
-				max_grad = grad_xy;
-				dst_pt.x = c;
-				dst_pt.y = r;
+				sub_x = (double)std::abs( o_gray_img.at<uchar>(r-1,c-1) + 
+					o_gray_img.at<uchar>(r-1,c)    + 
+					o_gray_img.at<uchar>(r-1,c+1)  +
+					o_gray_img.at<uchar>(r,c-1)   +
+					o_gray_img.at<uchar>(r,c+1)   +
+					o_gray_img.at<uchar>(r+1,c-1) +  
+					o_gray_img.at<uchar>(r+1,c)   + 
+					o_gray_img.at<uchar>(r+1,c+1) - 
+					o_gray_img.at<uchar>(r,c) * 8);
 
-			}
-			
-		}
-	}
+				grad_xy = sqrt( (double)( sub_x * sub_x ) );
+
+				if( grad_xy > max_grad )
+				{
+					max_grad = grad_xy;
+					dst_pt.x = c;
+					dst_pt.y = r;
+
+				}
+
+			}//end for c
+		}// end for r
+	}//end if LAPLACE 
 
 	return 0;
 
@@ -186,25 +211,29 @@ int find_max_grad_corner( cv::Mat o_gray_img, cv::Point src_pt, cv::Point &dst_p
  * Brief：实现在图像中查找棋盘格角点功能
  * Return: int类型的值(没有实际意义)
  * Param：
- *		1、src_img          in		输入的原始待检测图像 	
- *		2、&corner_points   inout	保存检测到的角点的数组
- * Fan in:
- * Fan out：find_corner_test();
+ *		1、cv::Mat					src_img				in		输入的原始待检测图像 	
+ *		2、std::vector<cv::Point2f> &corner_points		inout	保存检测到的角点的数组
+ *		3、float					f_thresh			in		输入的阈值，与评分比较的阈值，默认为0.01
+ *		3、bool						is_subpixel_refine	in		是否进行亚像素处理，默认为ture
+ * Fan in: find_corner_test()
+ * Fan out：create_template(),non_max_suppress(),corner_coords_subpixel_refine()
+ *			score_corner()
  * Version:
  *		v1.0	2017.4.19 create by July，the first version
  *---------------------------------------------------------
  */
-int find_corner(cv::Mat src_img, std::vector<cv::Point2f> &corner_points, bool subpixel_refine)
+int find_corner(cv::Mat src_img, std::vector<cv::Point2f> &corner_points, float f_thresh, bool is_subpixel_refine)
 {
-	if(src_img.empty()){
+	if( src_img.empty() )
+	{
 		std::cout << "input the src_img is empty!" << std::endl;
 		return -1;
 	}
 
-	
 	int n_h = src_img.rows;
 	int n_w = src_img.cols;
 	int n_channel = src_img.channels();
+
 	cv::Mat o_gray_img(src_img.size(),CV_8UC1);
 
 	if( 1 == src_img.channels() )
@@ -221,14 +250,16 @@ int find_corner(cv::Mat src_img, std::vector<cv::Point2f> &corner_points, bool s
 
 	cv::Mat o_float_img(n_h, n_w, CV_32FC1);
 
-	o_gray_img.convertTo(o_float_img, CV_32FC1); //将灰度图像转换成double类型的
+	o_gray_img.convertTo(o_float_img, CV_32FC1); //将灰度图像转换成float类型的
 	//src_mat.convertTo(dst_mat,CV_32F);
 	cv::Mat o_grad_x_img(n_h, n_w, CV_32FC1);	//x轴方向的梯度矩阵
 	cv::Mat o_grad_y_img(n_h, n_w, CV_32FC1);	//y轴方向的梯度矩阵
-	cv::Mat o_angle_img(n_h, n_w, CV_32FC1);	//计算sobel后梯度的方向矩阵
+	cv::Mat o_angle_img(n_h, n_w, CV_32FC1);	//计算sobel后梯度的方向矩阵 
+	cv::Mat o_weight_img(n_h, n_w, CV_32FC1); //计算sobel后的权重矩阵
 
-	//Mat abs_grad_x, abs_grad_y;  
-	Mat o_weight_img(n_h, n_w, CV_32FC1); //计算sobel后的权重矩阵
+	cv::Mat sub_mat_1 = Mat::zeros(n_h, n_w, CV_32FC1);
+	cv::Mat sun_mat_2 = Mat::zeros(n_h, n_w, CV_32FC1);
+
 	float *pd_weight_data = NULL;
 	float *pd_grad_x_data = NULL;
 	float *pd_grad_y_data = NULL;
@@ -254,6 +285,7 @@ int find_corner(cv::Mat src_img, std::vector<cv::Point2f> &corner_points, bool s
 									   (pd_grad_y_data[c] * pd_grad_y_data[c]) );
 			pd_angle_data[c] = atan2f( pd_grad_y_data[c], pd_grad_x_data[c] );
 
+			//将计算后的角度矫正到0——PI
 			if( pd_angle_data[c] < 0 )
 			{
 				pd_angle_data[c] += C_PI;
@@ -272,9 +304,11 @@ int find_corner(cv::Mat src_img, std::vector<cv::Point2f> &corner_points, bool s
 	// addWeighted(src1,alpha,src2,beta,gamma,dst);
 	// dst = src1*alpha + src2*beta + gamma; 
 	// addWeighted( abs_grad_x, 0.5, abs_grad_y, 0.5, 0, o_weight_img ); 
+
 	cv::Mat o_norm_img;//归一化后的矩阵
 	double d_min;
 	double d_max;
+	std::vector<int> radius_vec;
 
 	//得到最大值和最小值做归一化处理
 	cv::minMaxLoc(o_float_img,&d_min,&d_max); //get max and min value
@@ -294,6 +328,7 @@ int find_corner(cv::Mat src_img, std::vector<cv::Point2f> &corner_points, bool s
 	 *	pi/4	-pi/4	12
 	--------------------------------*/
 	cv::Mat template_props = cv::Mat(6,3,CV_32FC1);
+
 	template_props.at<float>(0,0) = (float)0;
 	template_props.at<float>(0,1) = (float)C_PI/2;
 	template_props.at<float>(0,2) = (float)4;
@@ -341,7 +376,14 @@ int find_corner(cv::Mat src_img, std::vector<cv::Point2f> &corner_points, bool s
 	std::vector<cv::Mat> template_vec;
 
 	//临时存放的角点
-	std::vector<cv::Point2d> temp_save_pt;
+	std::vector<cv::Point> temp_corner_coords;
+	std::vector<cv::Point2f> corner_v1;
+	std::vector<cv::Point2f> corner_v2;
+	std::vector<cv::Point2f> temp_corner_subpixel_coords;
+
+	std::vector<float> score_corner_vec;
+
+	std::cout << "start filter......................." << endl;
 
 	//根据创建的模板对图像进行滤波处理
 	//目的就是得到角点
@@ -351,7 +393,7 @@ int find_corner(cv::Mat src_img, std::vector<cv::Point2f> &corner_points, bool s
 
 		//注意：template_vec中方向模板矩阵在创建函数中存放的顺序，取出时要对应
 		cv::filter2D(o_float_img, img_corner_a1, o_float_img.depth(), template_vec[0] );//a1
-		cv::filter2D(o_float_img, img_corner_a2, o_float_img.depth(), template_vec[1] );//s2
+		cv::filter2D(o_float_img, img_corner_a2, o_float_img.depth(), template_vec[1] );//a2
 		cv::filter2D(o_float_img, img_corner_b1, o_float_img.depth(), template_vec[2] );//b1
 		cv::filter2D(o_float_img, img_corner_b2, o_float_img.depth(), template_vec[3] );//b2
 
@@ -362,37 +404,146 @@ int find_corner(cv::Mat src_img, std::vector<cv::Point2f> &corner_points, bool s
 		img_corner_mu = sum_3 / 4;
 
 		//img_corner_mu = (img_corner_a1 + img_corner_a2 + img_corner_b1 + img_corner_b2)/4;
+		sub_mat_1 = Mat::zeros(n_h, n_w, CV_32FC1);
+		sun_mat_2 = Mat::zeros(n_h, n_w, CV_32FC1);
 
+		//sub_mat_1 = img_corner_a1-img_corner_mu;
+		//sun_mat_2 = img_corner_a2-img_corner_mu;
 		//case 1: a = white, b = black
-		//cv::min( (img_corner_a1-img_corner_mu), (img_corner_a2-img_corner_mu), img_corner_a );
-		//cv::min( (img_corner_mu-img_corner_b1), (img_corner_mu-img_corner_b2), img_corner_b );
-		//cv::min( img_corner_a, img_corner_b, img_corner_1 );
+		min_matrix( (img_corner_a1-img_corner_mu), (img_corner_a2-img_corner_mu), img_corner_a );
+		min_matrix( (img_corner_a1-img_corner_mu), (img_corner_a2-img_corner_mu), img_corner_a );
+		min_matrix( (img_corner_mu-img_corner_b1), (img_corner_mu-img_corner_b2), img_corner_b );
+		min_matrix( img_corner_a, img_corner_b, img_corner_1 );
 
-		////case 2: a = black, b = white
-		//cv::min( (img_corner_mu-img_corner_a1), (img_corner_mu-img_corner_a2), img_corner_a );
-		//cv::min( (img_corner_b1-img_corner_mu), (img_corner_b2-img_corner_mu), img_corner_b );
-		//cv::min( img_corner_a, img_corner_b, img_corner_2 );
+		//case 2: a = black, b = white
+		min_matrix( (img_corner_mu-img_corner_a1), (img_corner_mu-img_corner_a2), img_corner_a );
+		min_matrix( (img_corner_b1-img_corner_mu), (img_corner_b2-img_corner_mu), img_corner_b );
+		min_matrix( img_corner_a, img_corner_b, img_corner_2 );
 
-		//cv::max(  o_corner_img, img_corner_1, o_corner_img );
-		//cv::max(  o_corner_img, img_corner_1, o_corner_img );
+		max_matrix(  o_corner_img, img_corner_1, o_corner_img );
+		max_matrix(  o_corner_img, img_corner_1, o_corner_img );
 
 	}
 
 	//利用非极大值抑制处理筛选出角点坐标
-	non_max_suppress(o_corner_img, 3, 0.025, 5, temp_save_pt);
+	non_max_suppress(o_corner_img, 3, 0.025, 5, temp_corner_coords);
+
+	std::cout << "start Refining......................." << endl;
 
 	//根据测试结果可以选择做不做亚像素级处理
-	if( subpixel_refine )
+	if( is_subpixel_refine )
 	{
 		//角点坐标亚像素级处理
-		//corner_coords_subpixel_refine();
+		corner_coords_subpixel_refine( o_grad_x_img, o_grad_y_img, o_angle_img, o_weight_img, temp_corner_coords,	
+											temp_corner_subpixel_coords, corner_v1, corner_v2, 10 );
 	}
 
+	//移除不是边缘的角点
+	for( int i = 0; i < corner_v1.size(); i++ )
+	{
+		if( 0 == corner_v1[i].x && 0 == corner_v1[i].y )
+		{
+			temp_corner_subpixel_coords.erase( temp_corner_subpixel_coords.begin()+i );
+			corner_v1.erase( corner_v1.begin()+i );
+			corner_v2.erase( corner_v2.begin()+i );
+		}
+	}
 
+	std::cout << "Start Scoring ............................" << endl;
 
+	radius_vec.push_back( 4 );
+	radius_vec.push_back( 8 );
+	radius_vec.push_back( 12 );
+
+	//对角点进行评分
+	score_corner( o_float_img, o_angle_img, o_weight_img, temp_corner_subpixel_coords,
+					corner_v1, corner_v2, radius_vec, score_corner_vec );
+
+	//移除评分低的角点
+	for( int i = 0; i < score_corner_vec.size(); i++ )
+	{
+		if( score_corner_vec[i] < f_thresh )
+		{
+			temp_corner_subpixel_coords.erase( temp_corner_subpixel_coords.begin()+i );
+			corner_v1.erase( corner_v1.begin()+i );
+			corner_v2.erase( corner_v2.begin()+i );
+			score_corner_vec.erase( score_corner_vec.begin()+i );
+		}
+	}
+
+	//for( int i = 0; i < 
+	corner_points.assign( temp_corner_subpixel_coords.begin(), temp_corner_subpixel_coords.end() );
+
+	return 0;
 
 }
 
+/*
+ *-------------------------------------------------------
+ * Brief：两个矩阵对应位置的最小值保存到dstMat中
+ * Return: 无
+ * Param：
+ *		1、cv::Mat srcMat_1		in		输入矩阵1 	
+ *		2、cv::Mat srcMat_2		in		输入矩阵2
+ *		3、cv::Mat &dstMat		inout	得到两个矩阵对应位置的最小值
+ * Fan in: find_corner()
+ * Fan out：
+ * Version:
+ *		v1.0	2017.4.19 create by July，the first version
+ *---------------------------------------------------------
+ */
+void min_matrix( cv::Mat srcMat_1, cv::Mat srcMat_2, cv::Mat &dstMat )
+{
+	int n_height = srcMat_1.rows;
+	int n_width  = srcMat_1.cols;
+
+	if( srcMat_1.empty() || srcMat_2.empty() || srcMat_1.rows != srcMat_2.rows || srcMat_1.cols != srcMat_2.cols )
+	{
+		return;
+	}
+
+	for( int h = 0; h < n_height; h++ )
+	{
+		for( int w = 0; w < n_width; w++ )
+		{
+			dstMat.at<float>(h,w) = Min( srcMat_1.at<float>(h,w), srcMat_2.at<float>(h,w) );
+		}//end for w
+	}//end for h
+
+}
+
+/*
+ *-------------------------------------------------------
+ * Brief：两个矩阵对应位置的最大值保存到dstMat中
+ * Return: 无
+ * Param：
+ *		1、cv::Mat srcMat_1		in		输入矩阵1 	
+ *		2、cv::Mat srcMat_2		in		输入矩阵2
+ *		3、cv::Mat &dstMat		inout	得到两个矩阵对应位置的最大值
+ * Fan in: find_corner()
+ * Fan out：
+ * Version:
+ *		v1.0	2017.4.19 create by July，the first version
+ *---------------------------------------------------------
+ */
+void max_matrix( cv::Mat srcMat_1, cv::Mat srcMat_2, cv::Mat &dstMat )
+{
+	int n_height = srcMat_1.rows;
+	int n_width  = srcMat_1.cols;
+
+	if( srcMat_1.empty() || srcMat_2.empty() || srcMat_1.rows != srcMat_2.rows || srcMat_1.cols != srcMat_2.cols )
+	{
+		return;
+	}
+
+	for( int h = 0; h < n_height; h++ )
+	{
+		for( int w = 0; w < n_width; w++ )
+		{
+			dstMat.at<float>(h,w) = Max( srcMat_1.at<float>(h,w), srcMat_2.at<float>(h,w) );
+		}//end for w
+	}//end for h
+}
 /*
  *-------------------------------------------------------
  * Brief：根据输入的参数创建模板
@@ -610,6 +761,8 @@ float compute_matrix_norm(cv::Mat o_mat)
 			d_value += (double)pf_data[c] * pf_data[c]; //平方累加和
 		}
 	}
+
+	pf_data = NULL;
 
 	d_value = sqrtf((float)d_value); //将累加后的数据开平方
 
@@ -880,10 +1033,10 @@ void mean_matrix(cv::Mat o_src_mat, cv::Mat &o_dst_mat)
  *		v1.0	2017.4.19 create by July，the first version
  *---------------------------------------------------------
  */
-void non_max_suppress(cv::Mat src_mat, int n_region_len, double d_threshold, int n_margin, std::vector<cv::Point2d> &coords_points)
+void non_max_suppress(cv::Mat src_mat, int n_region_len, double d_threshold, int n_margin, std::vector<cv::Point> &coords_points)
 {
 	int n_L = n_region_len;
-	cv::Point2d temp_pt;
+	cv::Point temp_pt;
 	int n_h = src_mat.rows;
 	int n_w = src_mat.cols;
 	float f_gray_val;
@@ -991,7 +1144,7 @@ void non_max_suppress(cv::Mat src_mat, int n_region_len, double d_threshold, int
  */
 void corner_coords_subpixel_refine( cv::Mat grad_x_img, cv::Mat grad_y_img,			\
 								        cv::Mat angle_img, cv::Mat weight_img,				\
-										std::vector<cv::Point2i> corner_coords,			\
+										std::vector<cv::Point> corner_coords,			\
 										std::vector<cv::Point2f> &corner_subpixel_coords, \
 										std::vector<cv::Point2f> &corner_v1,				\
 										std::vector<cv::Point2f> &corner_v2,int r )
@@ -1317,16 +1470,24 @@ void corner_coords_subpixel_refine( cv::Mat grad_x_img, cv::Mat grad_y_img,			\
 
 	} // end for(i < corner_coords.size())
 
+	//释放内存并将指针指向空地址
 	delete []pd_A1;
 	delete []pd_A2;
+	pd_A1 = NULL;
+	pd_A2 = NULL;
 
 	delete []A1_eigen_val;
 	delete []A1_eigen_vec;
+	A1_eigen_val = NULL;
+	A1_eigen_vec = NULL;
 
 	delete []A2_eigen_val;
 	delete []A2_eigen_vec;
+	A2_eigen_val = NULL;
+	A2_eigen_vec = NULL;
 
 	delete []pf_w;
+	pf_w = NULL;
 
 	return ;
 }
@@ -1340,26 +1501,53 @@ void corner_coords_subpixel_refine( cv::Mat grad_x_img, cv::Mat grad_y_img,			\
  *		2、weight_img				in			梯度权重图像
  *		3、&coords_pts_v1			inout	    对角点方向统计的一个参数
  *		4、&coords_pts_v2			inout		对角点方向统计的另一个参数
- * Fan in：
- * Fan out：find_corner();
+ * Fan in：score_corner();
+ * Fan out：compute_array_std(),compute_array_mean(),compute_array_sum()
+ *			compute_array_dot_product(),create_template()
  * Version：
  *		v1.0	2017.4.20 create by July
  *---------------------------------------------------------
  */
 float corner_correlation_score( cv::Mat sub_srcImg, cv::Mat weight_img,    \
-							       ws_Data_f_2d &coords_pts_v1, \
-							       ws_Data_f_2d &coords_pts_v2 )
+							       ws_Data_f_2d coords_pts_v1, \
+							       ws_Data_f_2d coords_pts_v2 )
 {
 	float f_score = 0.0f;
 	int n_height = weight_img.rows;
 	int n_width  = weight_img.cols;
 
+	//权重图像的相关参数
+	double d_weight_img_sum = 0;
+	double d_weight_img_mean = 0;
+	double d_weight_img_std = 0; //标准差
+
+	//滤波图像的相关参数
+	double d_filter_img_sum = 0; //和
+	double d_filter_img_mean = 0;//均值
+	double d_filter_img_std = 0; //标准差
+
+	double d_score_grad = 0;
+	double d_score_intensity = 0;
+
+	double d_a1 = 0;
+	double d_a2 = 0;
+	double d_b1 = 0;
+	double d_b2 = 0;
+
+	double d_mean = 0;
+	double d_score_a = 0;
+	double d_score_b = 0;
+	double d_score_1 = 0;
+	double d_score_2 = 0;
+	
 	float f_temp_data = 0;
 	float f_norm_1 = 0;
 	float f_norm_2 = 0;
 
 	//图像宽度的一半
 	int n_half_width = (int)(n_width+1) / 2 ;
+	float *src_img_vec = new float[n_height*n_width];
+	memset( (float*)src_img_vec, 0, sizeof(float)*n_height*n_width );
 	//center
 	float *f_c = new float[2];
 	memset( (float*)f_c, n_half_width, sizeof(float)*2 );
@@ -1375,10 +1563,33 @@ float corner_correlation_score( cv::Mat sub_srcImg, cv::Mat weight_img,    \
 	float *img_filter = new float[n_height*n_width];
 	memset( (float*)img_filter, -1, sizeof(float)*n_height*n_width );
 
+	float *vec_weight = new float[n_height*n_width];
+	memset( (float*)vec_weight, 0, sizeof(float)*n_height*n_width );
+
+	float *dot_product_vec = new float[n_height*n_width];
+	memset( (float*)dot_product_vec, 0, sizeof(float)*n_height*n_width );
+
+	//得出的模板数组
+	float *template_a1_vec = new float[n_height*n_width];
+	float *template_a2_vec = new float[n_height*n_width];
+	float *template_b1_vec = new float[n_height*n_width];
+	float *template_b2_vec = new float[n_height*n_width];
+
+	memset( (float*)template_a1_vec, 0, sizeof(float)*n_height*n_width );
+	memset( (float*)template_a2_vec, 0, sizeof(float)*n_height*n_width );
+	memset( (float*)template_b1_vec, 0, sizeof(float)*n_height*n_width );
+	memset( (float*)template_b2_vec, 0, sizeof(float)*n_height*n_width );
+
+	std::vector<cv::Mat> template_vec;
+
+
 	for( int h = 0; h < n_height; h++ )
 	{
 		for( int w = 0; w < n_width; w++ )
 		{
+			*(vec_weight + h * n_width + w) = weight_img.at<float>(h,w);
+			*(src_img_vec + h * n_width + w) = sub_srcImg.at<float>(h,w);
+
 			f_p1[0] = h - f_c[0];
 			f_p1[1] = w - f_c[0];
 
@@ -1402,12 +1613,114 @@ float corner_correlation_score( cv::Mat sub_srcImg, cv::Mat weight_img,    \
 
 	}//end for h
 
+	//对滤波图像进行标准化处理
+	d_filter_img_sum = compute_array_sum( img_filter, n_height*n_width );
+	d_filter_img_mean = d_filter_img_sum / (n_height * n_width ) ;
+	d_filter_img_std = compute_array_std( img_filter, n_height*n_width, 0 );
+
+	for( int i = 0; i < n_height*n_width; i++ )
+	{
+		*(img_filter + i) = ( *(img_filter + i) - d_filter_img_mean ) / d_filter_img_std;
+	}
+
+	//对权重图像进行标准化处理
+	d_weight_img_sum = compute_array_sum( vec_weight, n_height*n_width );
+	d_weight_img_mean = d_weight_img_sum / (n_height * n_width);
+	d_weight_img_std = compute_array_std( vec_weight, n_height*n_width, 0 );
 
 
+	for( int i = 0; i < n_height*n_width; i++ )
+	{
+		*(vec_weight + i) = ( *(vec_weight + i) - d_weight_img_mean ) / d_weight_img_std;
+	}
+
+	compute_array_dot_product( vec_weight, img_filter, dot_product_vec, n_height*n_width );
+
+	d_score_grad = Max( compute_array_sum(dot_product_vec, n_height*n_width )/(n_height*n_width-1),0);
+
+	create_template( atan2f(coords_pts_v1.y,coords_pts_v1.x), atan2f(coords_pts_v2.y,coords_pts_v2.x), f_c[0]-1, template_vec );
+
+	for( int h = 0; h < n_height; h++ )
+	{
+		for( int w = 0; w < n_width; w++ )
+		{
+			*(template_a1_vec + h * n_width + w) = template_vec[0].at<float>(h,w);
+			*(template_a2_vec + h * n_width + w) = template_vec[1].at<float>(h,w);
+			*(template_b1_vec + h * n_width + w) = template_vec[2].at<float>(h,w);
+			*(template_b2_vec + h * n_width + w) = template_vec[3].at<float>(h,w);
+
+		}//end for w
+	}// end for h
+
+	//计算模板a1与原图像点积后的结果
+	memset( (float*)dot_product_vec, 0, sizeof(float)*n_height*n_width );
+	compute_array_dot_product( template_a1_vec, src_img_vec, dot_product_vec, n_height*n_width );
+	d_a1 = compute_array_sum(dot_product_vec, n_height*n_width );
+    //计算模板a2与原图像点积后的结果
+	memset( (float*)dot_product_vec, 0, sizeof(float)*n_height*n_width );
+	compute_array_dot_product( template_a2_vec, src_img_vec, dot_product_vec, n_height*n_width );
+	d_a2 = compute_array_sum(dot_product_vec, n_height*n_width );
+
+	//计算模板b1与原图像点积后的结果
+	memset( (float*)dot_product_vec, 0, sizeof(float)*n_height*n_width );
+	compute_array_dot_product( template_b1_vec, src_img_vec, dot_product_vec, n_height*n_width );
+	d_b1 = compute_array_sum(dot_product_vec, n_height*n_width );
+    //计算模板b2与原图像点积后的结果
+	memset( (float*)dot_product_vec, 0, sizeof(float)*n_height*n_width );
+	compute_array_dot_product( template_b2_vec, src_img_vec, dot_product_vec, n_height*n_width );
+	d_b2 = compute_array_sum(dot_product_vec, n_height*n_width );
+
+	d_mean = (d_a1 + d_a2 + d_b1 + d_b2) / 4;
+
+	//case 1: a = white, b = black
+	d_score_a = Min( d_a1-d_mean, d_a2-d_mean);
+	d_score_b = Min( d_mean-d_b1, d_mean-d_b2 );
+	d_score_1 = Min( d_score_a, d_score_b);
+
+	//case 2: b = white, a = black
+	d_score_a = Min(d_mean-d_a1, d_mean-d_a2);
+	d_score_b = Min(d_b1-d_mean, d_b2-d_mean);
+	d_score_1 = Min( d_score_a, d_score_b);
+
+	//intensity score: max. of the 2 cases
+	d_score_intensity = Max( Max( d_score_1, d_score_2 ), 0 );
+
+	//final score: product of ggradient and intensity score
+	f_score = d_score_grad * d_score_intensity;
+
+	//free memory
 	delete []f_c;
+	f_c = NULL;
+
 	delete []f_p1;
 	delete []f_p2;
 	delete []f_p3;
+
+	f_p1 = NULL;
+	f_p2 = NULL;
+	f_p3 = NULL;
+
+	delete []src_img_vec;
+	delete []img_filter;
+	delete []vec_weight;
+
+	src_img_vec = NULL;
+	img_filter = NULL;
+	vec_weight = NULL;
+
+	delete []dot_product_vec;
+	delete []template_a1_vec;
+	delete []template_a2_vec;
+	delete []template_b1_vec;
+	delete []template_b2_vec;
+
+	dot_product_vec = NULL;
+	template_a1_vec = NULL;
+	template_a2_vec = NULL;
+	template_b1_vec = NULL;
+	template_b2_vec = NULL;
+
+	return f_score;
 
 }
 
@@ -1427,8 +1740,8 @@ static bool myCompare(const float a1,const float a2)
  *		2、img_weight		in			角点梯度权重图像
  *		3、&v1				inout	    第一个峰值的位置
  *		4、&v2				inout		第二个峰值的位置
- * Fan in：
- * Fan out：find_corner();
+ * Fan in：corner_coords_subpixel_refine();
+ * Fan out：find_modes_meanshift(),
  * Version：
  *		v1.0	2017.4.27 create by July
  *---------------------------------------------------------
@@ -1552,8 +1865,8 @@ int edge_orientations( cv::Mat img_angle, cv::Mat img_weight, cv::vector<float> 
  *		2、sigma				in			sigma值
  *		3、&hist_smoothed		inout	    平滑后的直方图
  *		4、&modes				inout		返回局部的最大值位置
- * Fan in： hist_smooth()
- * Fan out：edge_orientations();
+ * Fan in： edge_orientations();
+ * Fan out：hist_smooth(),mode_find(),sort_mode()
  * Version：
  *		v1.0	2017.4.27 create by July
  *---------------------------------------------------------
@@ -1833,6 +2146,188 @@ int sort_mode( std::vector<float> &mode_col_1, std::vector<float> &mode_col_2 )
 	return 0;
 
 }
+/*
+ *---------------------------------------------------------
+ * Brief：对角点进行评分排序
+ * Return： 无
+ * Param：	
+ *		1、cv::Mat						src_Mat,					in		输入的原图像数据
+ *		2、cv::Mat						angle_img,					in		角度图像
+ *		3、cv::Mat						weight_img					in		权重图像
+ *		4、std::vector<cv::Point2f>		corner_subpixel_coords,		in		亚像素角点坐标
+ *		5、std::vector<cv::Point2f>		corner_v1,					in		角点角度参数1
+ *		6、std::vector<cv::Point2f>		corner_v2,					in		角点角度参数2
+ *		7、std::vector<int>				radius, 					in		尺度半径参数
+ *		8、std::vector<float>			&score_corner_table			inout	得到的评分数组
+ * Fan in：find_corner();
+ * Fan out：corner_correlation_score(),round()
+ * Version：
+ *		v1.0	2017.5.17 create by July
+ *---------------------------------------------------------
+ */
+void score_corner( cv::Mat src_Mat, cv::Mat angle_img, cv::Mat weight_img, 
+					std::vector<cv::Point2f> corner_subpixel_coords, 
+					std::vector<cv::Point2f> corner_v1,
+					std::vector<cv::Point2f> corner_v2,
+				    std::vector<int> radius, 
+					std::vector<float> &score_corner_table )
+{
+	int n_height = 0;
+	int n_width  = 0;
+
+	int n_x = 0;
+	int n_y = 0;
+
+	int start_x = 0; //start_x
+	int start_y = 0; //start_y
+	int end_x = 0; //end_x
+	int end_y = 0; //end_y
+
+	int w = 0;
+	int h = 0;
+
+	float f_max_val = 0;
+	float f_min_val = 9999;
+
+	ws_Data_f_2d coords_pts_v1;
+	ws_Data_f_2d coords_pts_v2;
+
+	float *pf_score = NULL;
+
+	if( src_Mat.empty() || angle_img.empty() || weight_img.empty() ||
+		corner_subpixel_coords.empty() || corner_v1.empty() ||
+		corner_v2.empty() || radius.empty() )
+	{
+		if( !score_corner_table.empty() )
+		{
+			score_corner_table.clear();
+		}
+		return ;
+	}
+
+	n_height = src_Mat.rows;
+	n_width  = src_Mat.cols;
+
+	pf_score = new float[radius.size()];
+	memset( (float*)pf_score, 0, sizeof(float)*radius.size() );
+
+	//for all corner do
+	for( int i = 0; i < corner_subpixel_coords.size(); i++ )
+	{
+		//n_x = (int)(corner_subpixel_coords[i].x + 0.5);
+		n_x = round(corner_subpixel_coords[i].x);
+		n_y = round(corner_subpixel_coords[i].y);
+		
+		for( int j = 0; j < radius.size(); j++ )
+		{
+			*(pf_score+j) = 0;
+
+			if( n_x >= radius[j] && n_x < n_width-radius[j] &&
+				n_y >= radius[j] && n_y < n_height-radius[j] )
+			{
+				start_x = n_x - radius[j];
+				start_y = n_y - radius[j];
+
+				end_x = n_x + radius[j];
+				end_y = n_y + radius[j];
+
+				w = end_x - start_x + 1;
+				h = end_y - start_y + 1;
+
+				Rect rect(start_x, start_y, w, h);
+				Mat src_img_sub = src_Mat( rect );     //得到原始灰度图像中的一部分
+				Mat angle_sub = angle_img( rect );		//得到角度图像中的一部分
+				Mat weight_sub = weight_img( rect );	//得到权重图像中的一部分
+
+				coords_pts_v1.x = corner_v1[i].x;
+				coords_pts_v1.y = corner_v1[i].y;
+
+				coords_pts_v2.x = corner_v2[i].x;
+				coords_pts_v2.y = corner_v2[i].y;
+
+				*(pf_score+j) =  corner_correlation_score( src_img_sub, weight_sub, coords_pts_v1, coords_pts_v2 ); 
+
+			} //end if
+
+		} //end for j < radius.size()
+
+		f_max_val = 0;
+		f_min_val = 9999;
+
+		find_array_max_min_val( pf_score, radius.size(), &f_max_val, &f_min_val ); 
+
+		score_corner_table.push_back(f_max_val);
+
+	}// end for i < corner_subpixel_coords.size()
+
+	delete []pf_score;
+	pf_score = NULL;
+
+	return ;
+
+}
+
+/*
+ *---------------------------------------------------------
+ * Brief：返回距离f_data最近的整数
+ * Return： int类型的整数
+ * Param：
+ *		1、float f_data	in	浮点数据	
+ * Fan in：score_corner()
+ * Fan out：
+ * Version：
+ *		v1.0	2017.5.16 create by July
+ *---------------------------------------------------------
+ */
+int round(float f_data)
+{
+	int n_ret_val = 0;
+
+	if( f_data > 0 )
+	{
+		return n_ret_val = (int)(f_data+0.5);
+	}
+	else if( f_data < 0 )
+	{
+		return n_ret_val = (int)(f_data-0.5);
+	}
+
+	return n_ret_val;
+
+}
+
+/*
+ *---------------------------------------------------------
+ * Brief：查找数组中最大值和最小值
+ * Return： 无
+ * Param：
+ *		1、float *src_data	in		浮点型数组数据
+ *		2、int   n_size     in		数组的大小
+ *		3、float *f_max_val inout   数组中最大值
+ *		4、float *f_min_val inout   数组中最小值
+ * Fan in：score_corner()
+ * Fan out：
+ * Version：
+ *		v1.0	2017.5.16 create by July
+ *---------------------------------------------------------
+ */
+void find_array_max_min_val( float *src_data, int n_size, float *f_max_val, float *f_min_val )
+{
+
+	for( int i = 0; i < n_size; i++ )
+	{
+		if( *(src_data+i) > *f_max_val )
+		{
+			*f_max_val = *(src_data+i);
+		}
+
+		if( *(src_data+i) < *f_min_val )
+		{
+			*f_min_val = *(src_data+i);
+		} 
+
+	}// end for i < n_size;
+}
 
 //int sort_mode_test(  std::vector<float> src_hist, std::vector<float> &mode_col_1, std::vector<float> &mode_col_2 )
 //{
@@ -1915,11 +2410,10 @@ int sort_mode( std::vector<float> &mode_col_1, std::vector<float> &mode_col_2 )
  *		2、int		nDim                in			矩阵的阶数n  
  *		3、double	*pdblVects          inout		长度为n*n的数组，返回特征向量(按列存储) 
  *		4、double	*pdbEigenValues		inout		特征值数组
- *		4、double	dbEps               in			精度要求  
- *		5、int		nJt                 in		   整型变量，控制最大迭代次数  
- *		6、          
- * Fan in：
- * Fan out：find_corner();
+ *		5、double	dbEps               in			精度要求  
+ *		6、int		nJt                 in		   整型变量，控制最大迭代次数            
+ * Fan in：corner_coords_subpixel_refine()
+ * Fan out：
  * Version：
  *		v1.0	2017.5.15 create by July
  *---------------------------------------------------------
@@ -2110,8 +2604,10 @@ bool Eigen_Jacbi(double * pMatrix,int nDim, double *pdblVects, double *pdbEigenV
   
     memcpy(pdblVects,pdbTmpVec,sizeof(double)*nDim*nDim);  
     delete []pdbTmpVec;  
+	pdbTmpVec = NULL;
 
 	delete []temp_vec;
+	temp_vec = NULL;
   
     return 1;  
 }  
@@ -2119,56 +2615,89 @@ bool Eigen_Jacbi(double * pMatrix,int nDim, double *pdblVects, double *pdbEigenV
 int Jacobi(double matrix[][2], double vec[][2], int maxt, int n)  
 {  
    
- int it, p, q, i, j; // 函数返回值  
- double temp, t, cn, sn, max_element, vip, viq, aip, aiq, apj, aqj; // 临时变量  
- for (it = 0; it < maxt; ++it)  
- {  
-  max_element = 0;  
-  for (p = 0; p < n-1; ++p)  
-  {  
-   for (q = p + 1; q < n; ++q)  
-   {  
-    if (fabs(matrix[p][q]) > max_element) // 记录非对角线元素最大值  
-     max_element = fabs(matrix[p][q]);  
-    if (fabs(matrix[p][q]) > EPS) // 非对角线元素非0时才执行Jacobi变换  
-    {  
-     // 计算Givens旋转矩阵的重要元素:cos(theta), 即cn, sin(theta), 即sn  
-     temp = (matrix[q][q] - matrix[p][p]) / matrix[p][q] / 2.0;  
-     if (temp >= 0) // t为方程 t^2 + 2*t*temp - 1 = 0的根, 取绝对值较小的根为t  
-      t = -temp + sqrt(1 + temp * temp);  
-     else  
-      t = -temp - sqrt(1 + temp * temp);  
-     cn = 1 / sqrt(1 + t * t);  
-     sn = t * cn;  
-     // Givens旋转矩阵之转置左乘matrix, 即更新matrix的p行和q行  
-     for (j = 0; j < n; ++j)  
-     {  
-      apj = matrix[p][j];  
-      aqj = matrix[q][j];  
-      matrix[p][j] = cn * apj - sn * aqj;  
-      matrix[q][j] = sn * apj + cn * aqj;  
-     }  
-     // Givens旋转矩阵右乘matrix, 即更新matrix的p列和q列  
-     for (i = 0; i < n; ++i)  
-     {  
-      aip = matrix[i][p];  
-      aiq = matrix[i][q];  
-      matrix[i][p] = cn * aip - sn * aiq;  
-      matrix[i][q] = sn * aip + cn * aiq;  
-     }  
-     // 更新特征向量存储矩阵vec, vec=J0×J1×J2...×Jit, 所以每次只更新vec的p, q两列  
-     for (i = 0; i < n; ++i)  
-     {  
-      vip = vec[i][p];  
-      viq = vec[i][q];  
-      vec[i][p] = cn * vip - sn * viq;  
-      vec[i][q] = sn * vip + cn * viq;  
-     }  
-    }    
-   }   
-  }   
-  if (max_element <= EPS) // 非对角线元素已小于收敛标准，迭代结束  
-   return 1;  
- }  
- return 0;  
+	int it, p, q, i, j; // 函数返回值  
+	double temp, t, cn, sn, max_element, vip, viq, aip, aiq, apj, aqj; // 临时变量  
+	for (it = 0; it < maxt; ++it)  
+	{  
+		max_element = 0;  
+		for (p = 0; p < n-1; ++p)  
+		{  
+			for (q = p + 1; q < n; ++q)  
+			{  
+				if (fabs(matrix[p][q]) > max_element) // 记录非对角线元素最大值  
+					max_element = fabs(matrix[p][q]);  
+				if (fabs(matrix[p][q]) > EPS) // 非对角线元素非0时才执行Jacobi变换  
+				{  
+					// 计算Givens旋转矩阵的重要元素:cos(theta), 即cn, sin(theta), 即sn  
+					temp = (matrix[q][q] - matrix[p][p]) / matrix[p][q] / 2.0;  
+					if (temp >= 0) // t为方程 t^2 + 2*t*temp - 1 = 0的根, 取绝对值较小的根为t  
+						t = -temp + sqrt(1 + temp * temp);  
+					else  
+						t = -temp - sqrt(1 + temp * temp);  
+					cn = 1 / sqrt(1 + t * t);  
+					sn = t * cn;  
+					// Givens旋转矩阵之转置左乘matrix, 即更新matrix的p行和q行  
+					for (j = 0; j < n; ++j)  
+					{  
+						apj = matrix[p][j];  
+						aqj = matrix[q][j];  
+						matrix[p][j] = cn * apj - sn * aqj;  
+						matrix[q][j] = sn * apj + cn * aqj;  
+					}  
+					// Givens旋转矩阵右乘matrix, 即更新matrix的p列和q列  
+					for (i = 0; i < n; ++i)  
+					{  
+						aip = matrix[i][p];  
+						aiq = matrix[i][q];  
+						matrix[i][p] = cn * aip - sn * aiq;  
+						matrix[i][q] = sn * aip + cn * aiq;  
+					}  
+					// 更新特征向量存储矩阵vec, vec=J0×J1×J2...×Jit, 所以每次只更新vec的p, q两列  
+					for (i = 0; i < n; ++i)  
+					{  
+						vip = vec[i][p];  
+						viq = vec[i][q];  
+						vec[i][p] = cn * vip - sn * viq;  
+						vec[i][q] = sn * vip + cn * viq;  
+					}  
+				}    
+			}   
+		}   
+		if (max_element <= EPS) // 非对角线元素已小于收敛标准，迭代结束  
+			return 1;  
+	}  
+	return 0;  
+}
+
+/*
+ *---------------------------------------------------------
+ * Brief：计算两个数组的点积， Y = X .* Z
+ *		  y1=x1*z1, y2=x2*z2, y3=x3*z3, ..... yn=xn*zn, n为数组的大小
+ * Return： double类型的数组和
+ * Param：
+ *		1、float *input_array1	in		输入的数组数据1
+ *		2、float *input_array2	in		输入的数组数据2
+ *		3、float *output_array  inout	输出的数组数据
+ *		4、int   n_size			in	数组的大小
+ * Fan in：;
+ * Fan out：corner_correlation_score();
+ * Version：
+ *		v1.0	2017.5.16 create by July，the first version
+ *---------------------------------------------------------
+ */
+int compute_array_dot_product( float *input_array1, float *input_array2, float *output_array, int n_array_size )
+{
+	int n_size = n_array_size;
+
+	if( NULL == input_array1 || NULL == input_array2 || NULL == output_array )
+	{
+		return -1;
+	}
+
+	for( int i = 0; i < n_size; i++ )
+	{
+		*(output_array + i) = *(input_array1 + i) * ( *(input_array2 + i) );
+	}
+
+	return 0;
 }
