@@ -31,6 +31,8 @@ int bilateralFilterTest();
 void ThresholdProcessing();
 void SpatialFunction(double *dstData,int mode_row,int mode_clo,double singa);
 
+void merge_image_to_video();
+
 
 int _tmain(int argc, _TCHAR* argv[])
 {
@@ -43,6 +45,11 @@ int _tmain(int argc, _TCHAR* argv[])
 	//float f_temp_val = atan2f(0.34,0.67);
 	//
 	//
+
+	merge_image_to_video();
+
+	return 0;
+
 	Mat C = Mat::zeros(20,20,CV_32FC1);
 	float E[9] = {0.0314,0.0216,0.0116,
 				   0.0754,0.0518,0.0277,
@@ -1571,4 +1578,48 @@ void Image2double_test()
 	//-----------------------------
 
 	system("pause");
+}
+
+void merge_image_to_video()
+{
+	int num = 0;  
+    CvSize size = cvSize(720,480);  //视频帧格式的大小
+    Mat image;
+    double fps = 30; 
+	const std::string path = "./link/2/xiaoban_0514/xiaoban_0514.avi";
+	//const std::string img_dir = ;
+    VideoWriter writer = VideoWriter(path,CV_FOURCC('D','I','V','X') ,fps,size);
+    char cname[500] = {0};  
+    VideoCapture capture;
+    capture.open(path);
+
+    while(1)
+    {
+        sprintf(cname,"./link/2/xiaoban_0514/camera3_%d.png",num); //加载图片的文件夹，图片的名称编号是1开始
+
+        image = imread(cname,-1);//加载图片文件至内存
+
+        if (image.empty())
+        {
+            cout << "图像加载失败！" << endl;
+            break ;
+        }
+
+        imshow("DisplayImage",image);
+
+        writer << image;  //将图片写到视屏文件中
+
+        /*if(++num == 23)
+            break;*/
+		num++;
+
+        cvWaitKey(1000/fps); 
+
+    }
+
+    waitKey(0);
+    //destroyWindow("DisplayImage");
+	destroyAllWindows();
+
+
 }
