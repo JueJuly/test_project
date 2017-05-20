@@ -332,6 +332,9 @@ int find_corner(cv::Mat src_img, std::vector<cv::Point2f> &corner_points, float 
 	int n_w = src_img.cols;
 	int n_channel = src_img.channels();
 
+	std::stringstream ss;
+	std::string str_text;
+
 	cv::Mat o_gray_img(src_img.size(),CV_8UC1);
 	cv::Mat o_float_img = Mat::zeros(n_h,n_w,CV_32FC1);
 	cv::Mat o_norm_img = Mat::zeros(n_h,n_w,CV_32FC1);//归一化后的矩阵
@@ -346,7 +349,7 @@ int find_corner(cv::Mat src_img, std::vector<cv::Point2f> &corner_points, float 
 		cvtColor(src_img, o_gray_img, CV_RGB2GRAY);
 	}
 
-	//GaussianBlur(o_gray_img, o_gray_img, Size(3,3),0); //gauss filter
+	GaussianBlur(src_img, src_img, Size(3,3),0); //gauss filter
 
 	convert_img_uchar_to_float( src_img, o_norm_img );
 
@@ -513,19 +516,23 @@ int find_corner(cv::Mat src_img, std::vector<cv::Point2f> &corner_points, float 
 
 	//根据创建的模板对图像进行滤波处理
 	//目的就是得到角点
+	double ts = cvGetTickCount();
+
 	for(int r = 0; r < template_props.rows; r++)
 	{
-		create_template( template_props.at<float>(r,0), template_props.at<float>(r,1), template_props.at<float>(r,2), template_vec );
+		create_template( template_props.at<float>(r,0), template_props.at<float>(r,1), 
+							template_props.at<float>(r,2), template_vec );
 
 		
-		printf("%0.4f,%0.4f,%0.4f\n\n", template_props.at<float>(r,0), template_props.at<float>(r,1), template_props.at<float>(r,2) );
+		printf("%0.4f,%0.4f,%0.4f\n\n", template_props.at<float>(r,0), 
+				template_props.at<float>(r,1), template_props.at<float>(r,2) );
 		
 		//注意：template_vec中方向模板矩阵在创建函数中存放的顺序，取出时要对应
 		cv::filter2D(o_float_img, img_corner_a1, o_float_img.depth(), template_vec[0] );//a1
 		cv::filter2D(o_float_img, img_corner_a2, o_float_img.depth(), template_vec[1] );//a2
 		cv::filter2D(o_float_img, img_corner_b1, o_float_img.depth(), template_vec[2] );//b1
 		cv::filter2D(o_float_img, img_corner_b2, o_float_img.depth(), template_vec[3] );//b2
-		for( int h = 0; h < template_vec[0].rows; h++ )
+		/*for( int h = 0; h < template_vec[0].rows; h++ )
 		{
 			for( int w = 0; w < template_vec[0].cols; w++ )
 			{
@@ -539,11 +546,11 @@ int find_corner(cv::Mat src_img, std::vector<cv::Point2f> &corner_points, float 
 		{
 			for( int w = 0; w < 20; w++ )
 			{
-				printf("%0.4f,", o_float_img.at<float>(h,w) );
+				printf("%0.4f,", img_corner_a1.at<float>(h,w) );
 			}
 			printf("\n");
 			printf("\n");
-		}
+		}*/
 
 		cv::add(img_corner_a1, img_corner_a2, sum_1);
 		cv::add(img_corner_b1, img_corner_b2, sum_2);
@@ -573,11 +580,40 @@ int find_corner(cv::Mat src_img, std::vector<cv::Point2f> &corner_points, float 
 
 	}
 
-	
-	
+	printf("mvFindCorner: take time:%0.3fms",(cvGetTickCount()-ts)/( cvGetTickFrequency()*1000.0f) );
+	/*FILE *fp = fopen("./ChangAn_2/Corner_img_data.txt","wt");
 
+	for( int h = 0; h < o_corner_img.rows; h++ )
+	{
+		for( int w = 0; w < o_corner_img.cols; w++ )
+		{
+			fprintf(fp,"%0.4f,", o_corner_img.at<float>(h,w) );
+		}
+		fprintf(fp,"\n");
+	}
+	fclose(fp);*/
 	//利用非极大值抑制处理筛选出角点坐标
-	non_max_suppress(o_corner_img, 3, 0.025, 5, temp_corner_coords);
+	non_max_suppress(o_corner_img, 3, 0.05, 15, temp_corner_coords);
+	printf("经过非极大值抑制之后的角点数量:%d\n",temp_corner_coords.size() );
+	//将检测到的点坐标在图像中画出来
+	for( int i=0; i<temp_corner_coords.size(); i++ )
+	{
+		cv::circle(src_img, cv::Point(temp_corner_coords[i].x, temp_corner_coords[i].y),
+					4,CV_RGB(255,0,0) );
+		/*ss << i;
+		ss >> str_text;
+		ss.clear();
+		ss.str("");*/
+		/*putText(src_img,str_text,Point(temp_corner_coords[i].x-5, temp_corner_coords[i].y-5),
+				CV_FONT_HERSHEY_PLAIN, 1.2, CV_RGB(0,255,0),2);*/
+	}
+
+	cv::namedWindow("CornerImg", WINDOW_AUTOSIZE);
+	cv::imshow("CornerImg", src_img);
+
+	cv::waitKey(0);
+
+	
 
 	std::cout << "non_max_suppress is end!" << endl;
 
@@ -602,6 +638,25 @@ int find_corner(cv::Mat src_img, std::vector<cv::Point2f> &corner_points, float 
 		}
 	}
 
+	printf("经过亚像素级处理之后的角点数量:%d\n",temp_corner_subpixel_coords.size() );
+
+	for( int i=0; i<temp_corner_subpixel_coords.size(); i++ )
+	{
+		cv::circle(src_img, cv::Point((int)temp_corner_subpixel_coords[i].x, (int)temp_corner_subpixel_coords[i].y),
+			4,CV_RGB(0,255,0) );
+		/*ss << i;
+		ss >> str_text;
+		ss.clear();
+		ss.str("");*/
+		/*putText(src_img,str_text,Point(temp_corner_coords[i].x-5, temp_corner_coords[i].y-5),
+				CV_FONT_HERSHEY_PLAIN, 1.2, CV_RGB(0,255,0),2);*/
+	}
+
+	cv::namedWindow("CornerImg2", WINDOW_AUTOSIZE);
+	cv::imshow("CornerImg2", src_img);
+
+	cv::waitKey(0);
+
 	std::cout << "Start Scoring ............................" << endl;
 
 	radius_vec.push_back( 4 );
@@ -624,11 +679,98 @@ int find_corner(cv::Mat src_img, std::vector<cv::Point2f> &corner_points, float 
 		}
 	}
 
+	printf("经过角点评分之后的角点数量:%d\n",temp_corner_subpixel_coords.size() );
+
+	for( int i=0; i<temp_corner_subpixel_coords.size(); i++ )
+	{
+		cv::circle(src_img, cv::Point((int)temp_corner_subpixel_coords[i].x, (int)temp_corner_subpixel_coords[i].y),
+			4,CV_RGB(05,0,255) );
+		/*ss << i;
+		ss >> str_text;
+		ss.clear();
+		ss.str("");*/
+		/*putText(src_img,str_text,Point(temp_corner_coords[i].x-5, temp_corner_coords[i].y-5),
+				CV_FONT_HERSHEY_PLAIN, 1.2, CV_RGB(0,255,0),2);*/
+	}
+
+	cv::namedWindow("CornerImg3", WINDOW_AUTOSIZE);
+	cv::imshow("CornerImg3", src_img);
+
+	cv::waitKey(0);
+
 	//for( int i = 0; i < 
 	corner_points.assign( temp_corner_subpixel_coords.begin(), temp_corner_subpixel_coords.end() );
 
+	cv::destroyAllWindows();
 	return 0;
 
+}
+
+/*
+ *-------------------------------------------------------
+ * Brief： 利用核矩阵kernel_mat与src_mat矩阵进行卷积操作，
+ *			得到dst_mat矩阵,计算出来的dst_mat尺寸和src_mat一样
+ * Return: 无
+ * Param：
+ *		1、cv::Mat srcMat_1		in		输入源矩阵1 	
+ *		2、cv::Mat dst_mat		inout	输出矩阵2
+ *		3、cv::Mat kernel_mat	in		卷积核
+ * Fan in: find_corner()
+ * Fan out：
+ * Version:
+ *		v1.0	2017.5.18 create by July，the first version
+ * Note:
+ *		只针对单通道的图像,图像的边缘不作处理
+ *---------------------------------------------------------
+ */
+void matrix_convolve_compute_1( cv::Mat src_mat, cv::Mat &dst_mat, cv::Mat kernel_mat )
+{
+	int n_h = src_mat.rows;
+	int n_w = src_mat.cols;
+
+	int n_r = kernel_mat.rows;
+	int n_c = kernel_mat.cols;
+
+	int n_half_r = int(n_r/2);
+	int n_half_c = int(n_c/2);
+
+	float *pf_src_data = NULL;
+	float *pf_dst_data = NULL;
+	float *pf_kernel_data = NULL;
+
+	float f_temp_val = 0;
+
+	for( int h = n_half_r; h < n_h-n_half_r; h++ )
+	{
+		//pf_src_data = src_mat.ptr<float>(h);
+		pf_dst_data = dst_mat.ptr<float>(h);
+
+		for( int w = n_half_r; w < n_w-n_half_c; w++ )
+		{
+			f_temp_val = 0;
+
+			for( int r = 0; r < n_r; r++ )
+			{
+				pf_kernel_data = kernel_mat.ptr<float>(r);
+				pf_src_data = src_mat.ptr<float>(h-n_half_r+r);
+
+				for( int c = 0; c < n_c; c++ )
+				{
+					f_temp_val += pf_kernel_data[c] * pf_src_data[w-n_half_c+c];
+				}
+			}
+
+			pf_dst_data[w] = f_temp_val;
+
+		}//end for w
+
+	}//end for h
+
+	pf_src_data = NULL;
+	pf_dst_data = NULL;
+	pf_kernel_data = NULL;
+
+	return ;
 }
 
 /*
@@ -648,7 +790,7 @@ int find_corner(cv::Mat src_img, std::vector<cv::Point2f> &corner_points, float 
  *		只针对单通道的图像
  *---------------------------------------------------------
  */
-void matrix_convolve_compute( cv::Mat src_mat, cv::Mat dst_mat, cv::Mat kernel_mat )
+void matrix_convolve_compute( cv::Mat src_mat, cv::Mat &dst_mat, cv::Mat kernel_mat )
 {
 	int n_h = src_mat.rows;
 	int n_w = src_mat.cols;
@@ -679,11 +821,11 @@ void matrix_convolve_compute( cv::Mat src_mat, cv::Mat dst_mat, cv::Mat kernel_m
 					for( int r = n_r-(int)(n_r/2)-h-1; r < n_r; r++ )
 					{
 						pf_kernel_data = kernel_mat.ptr<float>(r);
-						pf_src_data = src_mat.ptr<float>(r-h);
+						pf_src_data = src_mat.ptr<float>(r-(int)n_r/2+h);
 
 						for( int c = n_c-(int)(n_c/2)-w-1; c < n_c; c++ )
 						{
-							f_temp_val += pf_kernel_data[c] * ;
+							f_temp_val += pf_kernel_data[c] * pf_src_data[c-(int)n_c/2+w];
 						}
 					}
 				}
@@ -1260,7 +1402,8 @@ void mean_matrix(cv::Mat o_src_mat, cv::Mat &o_dst_mat)
  *		v1.0	2017.4.19 create by July，the first version
  *---------------------------------------------------------
  */
-void non_max_suppress(cv::Mat src_mat, int n_region_len, double d_threshold, int n_margin, std::vector<cv::Point> &coords_points)
+void non_max_suppress(cv::Mat src_mat, int n_region_len, double d_threshold, int n_margin,
+						std::vector<cv::Point> &coords_points)
 {
 	int n_L = n_region_len;
 	cv::Point temp_pt;
@@ -1342,7 +1485,7 @@ void non_max_suppress(cv::Mat src_mat, int n_region_len, double d_threshold, int
 
 			if( f_max_val >= d_threshold && !b_failed )
 			{
-				coords_points.push_back(temp_pt);
+				coords_points.push_back(Point(n_max_x,n_max_y));
 			}
 
 		}
@@ -1366,15 +1509,15 @@ void non_max_suppress(cv::Mat src_mat, int n_region_len, double d_threshold, int
  *		7、std::vector<cv::Point2f> &corner_v1,				inout	角点方向的值，cos和sin值
  *		8、std::vector<cv::Point2f> &corner_v2				inout	角点方向的值，cos和sin值
  *		9、int						r						in		局部矩形区域边长
- * Fan in：
- * Fan out：find_corner();
+ * Fan in：find_corner();
+ * Fan out：
  * Version：
  *		v1.0	2017.5.15 create by July
  *---------------------------------------------------------
  */
 void corner_coords_subpixel_refine( cv::Mat grad_x_img, cv::Mat grad_y_img,			\
 								        cv::Mat angle_img, cv::Mat weight_img,				\
-										std::vector<cv::Point> corner_coords,			\
+										std::vector<cv::Point> corner_coords,				\
 										std::vector<cv::Point2f> &corner_subpixel_coords, \
 										std::vector<cv::Point2f> &corner_v1,				\
 										std::vector<cv::Point2f> &corner_v2,int r )
@@ -1387,7 +1530,7 @@ void corner_coords_subpixel_refine( cv::Mat grad_x_img, cv::Mat grad_y_img,			\
 
 	std::vector<float> v1;
 	std::vector<float> v2;
-	cv::Point2f temp_pt;
+	cv::Point2f temp_pt(0,0);
 
 	float f_temp_val = 0;
 	float f_temp_val_v1 = 0;
@@ -1514,8 +1657,8 @@ void corner_coords_subpixel_refine( cv::Mat grad_x_img, cv::Mat grad_y_img,			\
 
 		corner_v1[i] = temp_pt;
 
-		temp_pt.x = v1[0];
-		temp_pt.y = v1[1];
+		temp_pt.x = v2[0];
+		temp_pt.y = v2[1];
 
 		corner_v2[i] = temp_pt;
 

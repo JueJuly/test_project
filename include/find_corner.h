@@ -36,8 +36,11 @@ void convert_img_uchar_to_float( cv::Mat src_img_uchar, cv::Mat dst_img_float );
 //create correlation template
 void create_template( float f_angle1, float f_angle2, float f_radius, std::vector<cv::Mat> &template_vec );
 
-//矩阵的卷积计算
-void matrix_convolve_compute( cv::Mat src_mat, cv::Mat dst_mat, cv::Mat kernel_mat );
+//矩阵的卷积计算，
+void matrix_convolve_compute( cv::Mat src_mat, cv::Mat &dst_mat, cv::Mat kernel_mat );
+
+//矩阵的卷积计算，图像的边缘不做处理
+void matrix_convolve_compute_1( cv::Mat src_mat, cv::Mat &dst_mat, cv::Mat kernel_mat );
 
 //两个矩阵对应位置的最小值保存到dstMat中
 void min_matrix( cv::Mat srcMat_1, cv::Mat srcMat_2, cv::Mat &dstMat );
