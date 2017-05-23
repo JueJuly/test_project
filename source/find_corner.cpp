@@ -306,6 +306,50 @@ int find_max_grad_corner( cv::Mat o_gray_img, cv::Point src_pt, cv::Point &dst_p
 
  }
 
+ /*
+ *-------------------------------------------------------
+ * Brief：实现在图像中查找棋盘格角点功能
+ * Return: int类型的值(没有实际意义)
+ * Param：
+ *		1、unsigned char	*p_gray_img		in		输入的原始待检测灰度图像 	
+ *		2、int				n_height		in		图像数据的高度
+ *		3、int				n_width			in		图像数据的宽度
+ *		3、corner_pt_2f		corner_pt		in		返回得到的角点坐标
+ * Fan in: find_corner_test()
+ * Fan out：create_template(),non_max_suppress(),
+ * Version:
+ *		v1.0	2017.4.19 create by July，the first version
+ *---------------------------------------------------------
+ */
+ int find_corner( unsigned char *p_gray_img, int n_height, int n_width, CornerPt2f corner_pt2f )
+ {
+
+	int n_h = n_height;
+	int n_w = n_width;
+
+	//角点坐标，坐标为int类型的
+	CornerPt corner_point; 
+
+	float *p_grad_x_img = NULL; //x轴方向的梯度图像
+	float *p_grad_y_img = NULL; //y轴方向的梯度图像
+	float *p_norm_img = NULL;	//归一化后的图像
+	float *p_angle_img = NULL;	//梯度的方向图像
+	float *p_weight_img = NULL; //权重图像
+	float *p_corner_img = NULL; //角点图像
+
+	if( NULL == p_gray_img )
+	{
+		printf("input the src_img is empty!\n");
+		return -1;
+	}
+
+	corner_point.Point = (ws_Point *)malloc(sizeof(ws_Point)*n_h*n_w);
+	corner_point.n_num = 0;
+
+
+
+ }
+
 /*
  *-------------------------------------------------------
  * Brief：实现在图像中查找棋盘格角点功能

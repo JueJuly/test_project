@@ -20,6 +20,13 @@ typedef struct WS_POINT2D
     int y; 
 
 }ws_Point2d; //2ά 
+
+typedef struct WS_POINT 
+{
+    int x;
+    int y; 
+
+}ws_Point; 
  
 typedef struct WS_POINTF2D
 {
@@ -58,6 +65,20 @@ typedef struct WS_POINT3F
 	float z;
 
 }ws_Point3f;
+
+typedef struct CORNER_PT_2F
+{
+	ws_Point2f *Point2f;
+	int n_num;
+
+}corner_pt_2f;
+
+typedef struct CORNER_PT
+{
+	ws_Point *Point;
+	int n_num;
+
+}corner_pt;
 
 
 

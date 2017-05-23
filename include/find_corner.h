@@ -127,7 +127,7 @@ void create_correlation_patch( float f_angle_1, float f_angle_2, std::vector<cv:
 int single_direct_sobel( const float *p_src_data, float *p_dst_data, 
 						    const int n_width, const int n_height );
 
-int find_corner( unsigned char *p_gray_img, int n_height, int n_width, ws_Point2f corner_pt );
+int find_corner( unsigned char *p_gray_img, int n_height, int n_width, CornerPt2f corner_pt );
 
 
 
