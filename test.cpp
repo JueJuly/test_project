@@ -47,7 +47,6 @@ int _tmain(int argc, _TCHAR* argv[])
 	//
 
 	merge_image_to_video();
-
 	return 0;
 
 	Mat C = Mat::zeros(20,20,CV_32FC1);
@@ -1573,13 +1572,14 @@ void Image2double_test()
 	cout<<"Mat 1:"<<endl;
 	cout<<mat1<<endl;
 	normalize(mat1,mat1,1.0,0.0,NORM_MINMAX);
-	cout<<"Mat 2:"<<endl;
-	cout<<mat1<<endl;
+	std::cout<<"Mat 2:"<<endl;
+	std::cout<<mat1<<endl;
 	//-----------------------------
 
 	system("pause");
 }
 
+//将一组图片合成一个视频
 void merge_image_to_video()
 {
 	int num = 0;  

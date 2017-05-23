@@ -11,6 +11,7 @@
 #define FIND_CORNER_H_
 
 #include "common.h"
+#include "point.h"
 #include <tchar.h>
 
 //定义算子类型
@@ -122,7 +123,11 @@ int compute_array_dot_product( float *input_array1, float *input_array2, float *
 //创建相关模板
 void create_correlation_patch( float f_angle_1, float f_angle_2, std::vector<cv::Mat> &template_vec );
 
+//单方向的sobel滤波
+int single_direct_sobel( const float *p_src_data, float *p_dst_data, 
+						    const int n_width, const int n_height );
 
+int find_corner( unsigned char *p_gray_img, int n_height, int n_width, ws_Point2f corner_pt );
 
 
 

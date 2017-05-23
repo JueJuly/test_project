@@ -18,27 +18,46 @@ typedef struct WS_POINT2D
 {
     int x;
     int y; 
+
 }ws_Point2d; //2ά 
  
 typedef struct WS_POINTF2D
 {
     float x;
-    float y;    
+    float y;  
+
 }ws_Pointf2d; 
+
+typedef struct WS_POINT2F
+{
+	float x;
+	float y;
+
+}ws_Point2f;
  
 typedef struct WS_POINT3D
 {
     int x;
     int y;
     int z; 
+
 }ws_Point3d; //3ά 
  
 typedef struct WS_POINTF3D
 {
     float x;
     float y; 
-    float z;   
+    float z;  
+
 }ws_Pointf3d;
+
+typedef struct WS_POINT3F
+{
+	float x;
+	float y;
+	float z;
+
+}ws_Point3f;
 
 
 

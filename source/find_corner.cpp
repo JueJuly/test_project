@@ -298,9 +298,11 @@ int find_max_grad_corner( cv::Mat o_gray_img, cv::Point src_pt, cv::Point &dst_p
 
 			pf_dst_data[w] = 0.2989 * f_R + 0.5870 * f_G + 0.1140 * f_B;
 
-		}
+		} //end for w
 
-	}
+	} //end for h
+
+	return ;
 
  }
 
@@ -335,10 +337,13 @@ int find_corner(cv::Mat src_img, std::vector<cv::Point2f> &corner_points,
 
 	std::stringstream ss;
 	std::string str_text;
+	float *pf_src_data = NULL;
+	float *pf_dst_data = NULL;
 
 	cv::Mat o_gray_img(src_img.size(),CV_8UC1);
 	cv::Mat o_float_img = Mat::zeros(n_h,n_w,CV_32FC1);
 	cv::Mat o_norm_img = Mat::zeros(n_h,n_w,CV_32FC1);//归一化后的矩阵
+
 	if( 1 == src_img.channels() )
 	{
 		o_gray_img = src_img.clone();
@@ -352,20 +357,13 @@ int find_corner(cv::Mat src_img, std::vector<cv::Point2f> &corner_points,
 
 	GaussianBlur(src_img, src_img, Size(3,3),0); //gauss filter
 
+	//此函数的功能是将src_img彩色图像的RGB数据都除以255，此时的RGB都是浮点数据，
+	//然后将浮点数的三通道数据转化为YUV中Y通道的数据，因此o_norm_img为浮点型的灰度图像
 	convert_img_uchar_to_float( src_img, o_norm_img );
 
 	printf("checking if the converted image data(float type and normalization) is correct!\n");
 	printf("------------------------------------------------!\n");
 	//
-	/*for( int h = 0; h < 20; h++ )
-	{
-		for( int w = 0; w < 20; w++ )
-		{
-			printf("%0.4f,", o_norm_img.at<float>(h,w) );
-		}
-		printf("\n");
-		printf("\n");
-	}*/
 	
 	cv::Mat o_grad_x_img(n_h, n_w, CV_32FC1);	//x轴方向的梯度矩阵
 	cv::Mat o_grad_y_img(n_h, n_w, CV_32FC1);	//y轴方向的梯度矩阵
@@ -377,10 +375,11 @@ int find_corner(cv::Mat src_img, std::vector<cv::Point2f> &corner_points,
 
 	double d_min = 0;
 	double d_max = 0;
+
 	//得到最大值和最小值做归一化处理
 	cv::minMaxLoc(o_norm_img,&d_min,&d_max); //get max and min value
 
-	o_float_img = o_norm_img * 1/(float)d_max;
+	//o_float_img = o_norm_img * 1/(float)d_max;
 
 	std::vector<int> radius_vec;
 
@@ -680,6 +679,126 @@ int find_corner(cv::Mat src_img, std::vector<cv::Point2f> &corner_points,
 	cv::destroyAllWindows();
 	return 0;
 
+}
+
+/*
+ *-------------------------------------------------------
+ * Brief： //单方向的sobel滤波,x方向
+ * Return: int类型
+ * Param：
+ *		1、float *p_src_data	in		输入的源数据 	
+ *		2、float *p_dst_data	inout	输出的处理后的数据
+ *		3、int n_width			in		源图像数据的宽度
+ *		4、int n_height			in		源图像数据的高度
+ * Fan in: find_corner()
+ * Fan out：
+ * Version:
+ *		v1.0	2017.5.23 create by July，the first version
+ * Note:
+ *		只针对单通道的图像,图像的边缘不作处理
+ *---------------------------------------------------------
+ */
+int single_direct_sobel_x( float *p_src_data, float *p_dst_data, 
+						     int n_width, int n_height )
+{
+	int n_h = n_height;
+	int n_w = n_width;
+
+	int h = 0;
+	int w = 0;
+
+	int r = 0;
+	int c = 0;
+
+	float *up_row_data = NULL;
+	float *cur_row_data = NULL;
+	float *down_row_data = NULL;
+
+	float *dst_data = NULL;
+
+	if( NULL == p_src_data )
+	{
+		printf(" p_src_data is NULL!\n");
+		return -1;
+	}
+
+	memset( (float*)p_dst_data, 0, sizeof(float)*n_w*n_h );
+
+	for( h = 1; h < n_h-1; h++ )
+	{
+		up_row_data = p_src_data + (h-1) * n_w;
+		cur_row_data = p_src_data + h * n_w;
+		down_row_data = p_src_data + (h+1) * n_w;
+		dst_data = p_dst_data + h * n_w;
+
+		for( w = 1; w < n_w-1; w++ )
+		{
+			dst_data[w] = ( up_row_data[w+1] - up_row_data[w-1] ) * 1 +
+						  ( cur_row_data[w+1] - cur_row_data[w-1] ) * 2 +
+						  ( down_row_data[w+1] - down_row_data[w-1] ) * 1 ;
+		}
+	}
+
+	return 0;
+}
+
+/*
+ *-------------------------------------------------------
+ * Brief： //单方向的sobel滤波,y方向
+ * Return: int类型
+ * Param：
+ *		1、float *p_src_data	in		输入的源数据 	
+ *		2、float *p_dst_data	inout	输出的处理后的数据
+ *		3、int n_width			in		源图像数据的宽度
+ *		4、int n_height			in		源图像数据的高度
+ * Fan in: find_corner()
+ * Fan out：
+ * Version:
+ *		v1.0	2017.5.23 create by July，the first version
+ * Note:
+ *		只针对单通道的图像,图像的边缘不作处理
+ *---------------------------------------------------------
+ */
+int single_direct_sobel_y( float *p_src_data, float *p_dst_data, 
+						    int n_width, int n_height )
+{
+	int n_h = n_height;
+	int n_w = n_width;
+
+	int h = 0;
+	int w = 0;
+
+	int r = 0;
+	int c = 0;
+
+	float *up_row_data = NULL;
+	float *down_row_data = NULL;
+
+	float *dst_data = NULL;
+
+	if( NULL == p_src_data )
+	{
+		printf(" p_src_data is NULL!\n");
+		return -1;
+	}
+
+	memset( (float*)p_dst_data, 0, sizeof(float)*n_w*n_h );
+
+	for( h = 1; h < n_h-1; h++ )
+	{
+		up_row_data = p_src_data + (h-1) * n_w;
+		down_row_data = p_src_data + (h+1) * n_w;
+		dst_data = p_dst_data + h * n_w;
+
+		for( w = 1; w < n_w-1; w++ )
+		{
+			dst_data[w] = ( down_row_data[w-1] - up_row_data[w-1] ) * 1 +
+						  ( down_row_data[w] - up_row_data[w] ) * 2 +
+						  ( down_row_data[w+1] - up_row_data[w+1] ) * 1 ;
+		}
+	}
+
+	return 0;
 }
 
 /*
@@ -2400,7 +2519,7 @@ void hist_smooth( std::vector<float> src_hist, std::vector<float> &dst_hist, con
 /*
  *---------------------------------------------------------
  * Brief：mode查找函数
- * Return： 无
+ * Return： int类型 无实际意义
  * Param：
  *		1、smooth_hist			in			平滑后的直方图	
  *		2、&mode_col_1			inout	    计算出来mode的第一列数据
