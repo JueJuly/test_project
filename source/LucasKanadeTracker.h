@@ -6,11 +6,27 @@
 #include <cstdio>
 #include <cstdlib>
 #include <string>
+#include <sstream>
+#include <iostream>
+#include <time.h>
 
 #include <opencv.hpp>
 
+#include "FindCornerType.h"
+
 using namespace cv;  
 using namespace std;
+
+void printLog( const char *logInfo );
+
+//Error Code
+enum ErrorCode
+{
+	RETURN_SUCCESS = 0,
+	VIDEO_OPEN_FAIL = -1,
+	READ_FRAME_IMAGE_FAIL = -2,
+	READ_IMAGE_FAIL = -3
+};
  
 typedef struct POINT
 {
@@ -71,12 +87,16 @@ public:
     void get_info(const int nh, const int nw);  
     void get_target(POINT *target, int n);  
     void run_single_frame();  
-    POINT get_result();  
+	void run( POINT *&resultPt, int &nNum );
+    POINT get_result(); 
+	POINT *get_result( int &nNum );
+
     BYTE *&get_pyramid(int th);  
     int get_pyrH(int th){ return height[th]; }  
     int get_pyrW(int th){ return width[th]; }  
 };  
   
 int opticalFlowTest();
+int run_video();
 
 #endif  

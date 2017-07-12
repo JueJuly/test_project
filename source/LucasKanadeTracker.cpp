@@ -6,7 +6,7 @@ using namespace std;
 LucasKanadeTracker::LucasKanadeTracker(const int windowRadius, bool usePyr)  
     :window_radius(windowRadius), isusepyramid(usePyr)  
 {  
-  
+	
 }  
   
   
@@ -114,8 +114,13 @@ void  LucasKanadeTracker::discard_pre_frame()
 {  
     //we don't new memory for original data,so we don't delete it here  
     for (int i = 0; i < max_pyramid_layer; i++)  
-        delete[]pre_pyr[i];  
+	{
+        //delete[]pre_pyr[i];
+		pre_pyr[i] = NULL;
+	}
+
 }  
+
 //set the next frame as pre_frame,must dicard pre_pyr in advance  
 void  LucasKanadeTracker::get_pre_frame()  
 {  
@@ -178,10 +183,10 @@ double LucasKanadeTracker::get_subpixel(BYTE*&src, int h, int w, const DBPoint& 
     double fractX = point.x - floorX;  
     double fractY = point.y - floorY;  
   
-    return ((1.0 - fractX) * (1.0 - fractY) * src[floorX + w* floorY])  
-        + (fractX * (1.0 - fractY) * src[floorX + 1 + floorY*w])  
-        + ((1.0 - fractX) * fractY * src[floorX + (floorY + 1)*w])  
-        + (fractX * fractY * src[floorX + 1 + (floorY + 1)*w]);  
+    return ((1.0 - fractX) * (1.0 - fractY) * src[floorX + w* floorY])   
+               + (fractX * (1.0 - fractY) * src[floorX + 1 + floorY*w])   
+               + ((1.0 - fractX) * fractY * src[floorX + (floorY + 1)*w])  
+               + (fractX * fractY * src[floorX + 1 + (floorY + 1)*w]);  
 }  
   
   
@@ -223,7 +228,103 @@ void LucasKanadeTracker::run_single_frame()
         target[i].y = endin[i].y;  
     }  
   
-}  
+} 
+
+void LucasKanadeTracker::run( POINT *&resultPt, int &nNum )
+{
+	char *state = NULL;  
+    lucaskanade(pre_pyr, next_pyr, target, endin, numofpoint, state);  
+
+#if 0	
+	//以下是直接将计算出来的匹配点赋值给原来的目标点，
+	//这样也把错误的点传过去
+    for (int i = 0; i < numofpoint; i++)  
+    {  
+        target[i].x = endin[i].x;  
+        target[i].y = endin[i].y; 
+
+		resultPt[i].x = endin[i].x;
+		resultPt[i].y = endin[i].y;
+		printf("resultPt[%d]=%d,%d\n",i,resultPt[i].x,resultPt[i].y);
+		nNum++;
+    }
+#endif
+
+#if 1 //改进的方法1，对计算出来的结果点进行修正，
+	  //具体做法：找出结果点集中与原目标点集中距离最小的点作为修正的点
+	DBPoint minPt;
+	minPt.x = 99999;
+	minPt.y = 99999;
+
+	//找最小距离点坐标
+	for (int i = 0; i < numofpoint; i++)  
+    {  
+		if( ABS(target[i].x-endin[i].x) < minPt.x )
+			minPt.x = endin[i].x;
+
+		if( ABS(target[i].y-endin[i].y) < minPt.y )
+			minPt.y = endin[i].y;
+
+    }
+	printf("minPt=%d,%d\n",minPt.x,minPt.y);
+	//对点进行修正
+	for (int i = 0; i < numofpoint; i++)  
+    {  
+		if( 0 == i )
+		{
+			if( endin[i].x < 0 || endin[i].x >= get_pyrW(0) )
+			{
+				//target[i].x = minPt.x;
+				endin[i].x = minPt.x;
+			}
+
+			if( endin[i].y < 0 || endin[i].y >= get_pyrH(0) )
+			{
+				//target[i].y = minPt.y;
+				endin[i].y = minPt.y;
+			}
+		}
+		else
+		{
+			if( endin[i].x < 0 || endin[i].x >= get_pyrW(0) )
+			{
+				//target[i].x = minPt.x;
+				endin[i].x = endin[i-1].x;
+			}
+
+			if( endin[i].y < 0 || endin[i].y >= get_pyrH(0) )
+			{
+				//target[i].y = minPt.y;
+				endin[i].y = endin[i-1].y;
+			}
+		}
+		target[i].x = endin[i].x;  
+        target[i].y = endin[i].y;
+
+		resultPt[i].x = endin[i].x;
+		resultPt[i].y = endin[i].y;
+		//printf("resultPt[%d]=%d,%d\n",i,resultPt[i].x,resultPt[i].y);
+		nNum++;
+
+		printf("target[%d]=%f,%f\n",i,target[i].x,target[i].y);
+		printf("endin[%d]=%f,%f\n",i,endin[i].x,endin[i].y);
+    }
+#endif
+}
+
+POINT *LucasKanadeTracker::get_result( int &nNum )
+{
+	POINT *resultPt = new POINT[numofpoint];
+
+	for (int i = 0; i < numofpoint; i++)  
+    {   
+		resultPt[i].x = endin[i].x;
+		resultPt[i].y = endin[i].y;
+		nNum++;
+    }
+
+	return resultPt;
+}
   
 void LucasKanadeTracker::lucaskanade( BYTE **&frame_pre, BYTE **&frame_cur,  
     DBPoint*& start, DBPoint*& finish, unsigned int point_nums, char*state )  
@@ -238,29 +339,36 @@ void LucasKanadeTracker::lucaskanade( BYTE **&frame_pre, BYTE **&frame_cur,
   
         memset(derivativeXs, 0, sizeof(double)* (2 * window_radius + 1)*(2 * window_radius + 1));  
   
-        memset(derivativeYs, 0, sizeof(double)* (2 * window_radius + 1)*(2 * window_radius + 1));  
+        memset(derivativeYs, 0, sizeof(double)* (2 * window_radius + 1)*(2 * window_radius + 1));
+
+		//printf("point_nums:%d\n",i);
   
         for (int j = max_pyramid_layer - 1; j >= 0; j--)  
         {  
             DBPoint curpoint;  
-            curpoint.x = start[i].x / pow(2.0, j);  
-            curpoint.y = start[i].y / pow(2.0, j);  
-
+            curpoint.x = start[i].x / pow(2.0,j);  
+            curpoint.y = start[i].y / pow(2.0,j); 
+			//printf("layer_num:%d\n",j);
+			
             double Xleft = curpoint.x - window_radius;  
             double Xright = curpoint.x + window_radius;  
             double Yleft = curpoint.y - window_radius;  
             double Yright = curpoint.y + window_radius;  
-			
+			//printf("left:%0.4f,right:%0.4f,top:%0.4f,down:%0.4f\n",Xleft,Xright,Yleft,Yright);
 			//得到梯度矩阵
             double gradient[4] = { 0 };  
             int cnt = 0;  
             for (double xx = Xleft; xx < Xright + 0.01; xx += 1.0)  
                 for (double yy = Yleft; yy < Yright + 0.01; yy += 1.0)  
                 {  
-                    assert(xx < 1000 && yy < 1000 && xx >= 0 && yy >= 0);  
+                   //assert(xx < 1000 && yy < 1000 && xx >= 0 && yy >= 0); 
+				   xx = (xx < 1.0) ? 1.0 : xx;
+				   yy = (yy < 1.0) ? 1.0 : yy;
+					//xx = (xx < 0) ? 0 : ( (xx > width[j]) ? width[j] : xx );
+					//yy = (yy < 0) ? 0 : ( (yy > height[j]) ? height[j] : yy );
 
-                    double derivativeX = get_subpixel(frame_pre[j],height[j], width[j], DBPoint(xx + 1.0, yy)) - \
-						                   get_subpixel(frame_pre[j], height[j],  width[j], DBPoint(xx - 1.0, yy));  
+                    double derivativeX = get_subpixel( frame_pre[j],height[j], width[j], DBPoint(xx + 1.0, yy) ) - \
+						                   get_subpixel( frame_pre[j], height[j], width[j], DBPoint(xx - 1.0, yy) );  
                     derivativeX /= 2.0;  
   
                     double t1 = get_subpixel(frame_pre[j], height[j], width[j], DBPoint(xx, yy + 1.0));  
@@ -293,10 +401,20 @@ void LucasKanadeTracker::lucaskanade( BYTE **&frame_pre, BYTE **&frame_cur,
                 for (double xx = Xleft; xx < Xright + 0.001; xx += 1.0)  
                     for (double yy = Yleft; yy < Yright + 0.001; yy += 1.0)  
                     {  
-                        assert(xx < 1000 && yy < 1000 && xx >= 0 && yy >= 0);  
+                        //assert(xx < 2000 && yy < 2000 && xx >= 0 && yy >= 0);
+						/*xx = (xx < 0) ? 0 : ( (xx > width[j]) ? width[j] : xx );
+						yy = (yy < 0) ? 0 : ( (yy > height[j]) ? height[j] : yy );*/
+						xx = (xx < 0) ? 0 : xx;
+						yy = (yy < 0) ? 0 : yy;
                         double nextX = xx + g[0] + opticalflow[0];  
-                        double nextY = yy + g[1] + opticalflow[1];  
-                        assert(nextX < 1000 && nextY < 1000 && nextX >= 0 && nextY >= 0);  
+                        double nextY = yy + g[1] + opticalflow[1];
+
+                        //assert(nextX < 2000 && nextY < 2000 && nextX >= 0 && nextY >= 0);  
+
+						/*nextX = (nextX < 0) ? 0 : ( (nextX > width[j]) ? width[j] : nextX );
+						nextY = (nextY < 0) ? 0 : ( (nextY > height[j]) ? height[j] : nextY );*/
+						nextX = (nextX < 0) ? 0 : nextX;
+						nextY = (nextY < 0) ? 0 : nextY;
                         double pixelDifference = (get_subpixel(frame_pre[j],height[j], width[j], DBPoint(xx, yy)) - \
 													get_subpixel(frame_cur[j], height[j],width[j], DBPoint(nextX, nextY)));  
                         mismatch[0] += pixelDifference*derivativeXs[cnt];  
@@ -348,7 +466,7 @@ void LucasKanadeTracker::ContraryMatrix(double *pMatrix, double * _pMatrix, int 
             // AfxMessageBox("求逆矩阵过程中被零除，无法求解!" );  
             //_ASSERTE(-1);//throw exception 
 			assert(-1);
-            exit(0);  
+            //exit(0);  
 			//return;
         }  
         for (int j = 0; j < dim; j++)//row     
@@ -404,10 +522,230 @@ bool LucasKanadeTracker::matrixMul(double *src1, int height1, int width1, double
     return true;  
 }  
 
+void printLog( const char *logInfo )
+{
+	int nLength ;
+	time_t rawTime;
+	struct tm *timeInfo;
+	char strTime[500];
+	char strTemp[2000];
+	FILE *fp = NULL;
+	nLength = (int)strlen(logInfo);
+
+	if( nLength > 0 )
+	{
+		time(&rawTime);
+		timeInfo = localtime(&rawTime);
+		sprintf(strTime,"\nThe current date/time is: %s", asctime(timeInfo));
+		fp = fopen("AlgoFindCorner.log","at+");
+		fwrite(strTime,(int)(strlen(strTime)),1,fp);
+		fwrite("\t",1,1,fp);
+		fwrite(logInfo,nLength,1,fp);
+		fflush(fp);
+		fclose(fp);
+	}
+	
+
+}
+
+int run_video()
+{
+	//std::string videoPath = "./opticalFlowTestData/bike.avi";
+	std::string videoPath = "./opticalFlowTestData/1.mp4";
+	cv::VideoCapture capture(videoPath);
+	std::size_t Pos = videoPath.find_last_of("/");
+	std::string fileName = videoPath.substr(Pos+1);
+	long startFrame = 460;
+	long frameSeq = startFrame;
+
+	long totalFrameNum = capture.get(CV_CAP_PROP_FRAME_COUNT);
+	cv::Mat frameImg;
+	cv::Mat frameGrayImg;
+	cv::Mat smallImg;
+	std::string writeFilePath ;
+	char writeFileName[500];
+	stringstream ss;
+	//角点区域
+	int nLeft = 21;
+	int nRight = 42;
+	int nTop = 195;
+	int nDown = 209;
+	POINT *testPt = new POINT[(nRight-nLeft)*(nDown-nTop)];
+	POINT *DisPt = new POINT[(nRight-nLeft)*(nDown-nTop)];
+	int nPtNum = 0;
+	int nHight = 360;
+	int nWidth = 380;
+	BYTE *currFrameData = new BYTE[nHight*nWidth];
+	BYTE *nextFrameData = new BYTE[nHight*nWidth];
+	
+	//BYTE *copydate = currentGrayCopy.data;
+
+	std::cout << "fileName:" << fileName << std::endl;
+	std::cout << "the total frame number：" << totalFrameNum << std::endl;
+
+	if( !capture.isOpened() )
+	{
+		std::cout << "open video fail!" << std::endl;
+		fprintf(stderr,"Return Error Code：%d\n",VIDEO_OPEN_FAIL);
+		return VIDEO_OPEN_FAIL;
+	}
+
+	for(int h = nTop; h < nDown; h++ )
+	{
+		for( int w = nLeft; w < nRight; w++ )
+		{
+			testPt[(h-nTop)*(nRight-nLeft)+(w-nLeft)].x = w;
+			testPt[(h-nTop)*(nRight-nLeft)+(w-nLeft)].y = h;
+		}
+	}
+
+	/*for(int i = 0; i < (nRight-nLeft)*(nDown-nTop); i++ )
+	{
+		printf("testPt[%d]:%d,%d\n",i,testPt[i].x,testPt[i].y );	
+	}*/
+
+	//bike.avi特征点集
+	/*testPt[0].x = 84;
+	testPt[0].y = 113;
+	testPt[1].x = 82;
+	testPt[1].y = 115;
+	testPt[2].x = 88;
+	testPt[2].y = 123;
+	testPt[3].x = 80;
+	testPt[3].y = 123;
+	testPt[4].x = 84;
+	testPt[4].y = 122;
+	testPt[5].x = 83;
+	testPt[5].y = 126;
+	testPt[6].x = 80;
+	testPt[6].y = 125;
+	testPt[7].x = 89;
+	testPt[7].y = 127;
+	testPt[8].x = 89;
+	testPt[8].y = 129;
+	testPt[9].x = 83;
+	testPt[9].y = 129;
+	testPt[10].x = 81;
+	testPt[10].y = 130;
+	testPt[11].x = 88;
+	testPt[11].y = 131;
+	testPt[12].x = 92;
+	testPt[12].y = 134;
+	testPt[13].x = 91;
+	testPt[13].y = 136;
+	testPt[14].x = 86;
+	testPt[14].y = 134;
+	testPt[15].x = 81;
+	testPt[15].y = 135;*/
+
+	//read from the first frame of video
+	capture.set( CV_CAP_PROP_POS_FRAMES,startFrame);
+	LucasKanadeTracker lkTracker(7,1);
+	//lkTracker.get_info(240, 320);
+	lkTracker.get_info(nHight, nWidth);
+	
+	while(frameSeq < totalFrameNum)
+	{
+		capture.set( CV_CAP_PROP_POS_FRAMES,frameSeq);
+
+		if(!capture.read(frameImg))
+		{
+			fprintf(stderr,"Return Error Code：%d\n",READ_FRAME_IMAGE_FAIL);
+			break;
+			//return READ_FRAME_IMAGE_FAIL;
+		}
+
+		cvtColor(frameImg(cv::Rect(1060,480,380,360)),frameGrayImg,CV_RGB2GRAY);
+		 
+		memcpy(currFrameData,frameGrayImg.data,sizeof(BYTE)*nHight*nWidth);
+
+		if( 0 == (frameSeq - startFrame) )
+		{
+			lkTracker.get_target(testPt,250);
+			lkTracker.get_pre_frame(currFrameData);
+			lkTracker.get_next_frame(currFrameData);
+			memcpy(nextFrameData,currFrameData,sizeof(BYTE)*nHight*nWidth);
+		}
+		else
+		{
+			nPtNum = 0;
+			lkTracker.get_pre_frame(nextFrameData);
+			lkTracker.get_next_frame(currFrameData);
+			lkTracker.run(DisPt,nPtNum);
+			memcpy(nextFrameData,currFrameData,sizeof(BYTE)*nHight*nWidth);
+		}
+
+		for( int i = 0; i < lkTracker.max_pyramid_layer; i++ )
+		{
+			cv::Mat pyramidImg(lkTracker.get_pyrH(i),lkTracker.get_pyrW(i),CV_8UC1,(uchar*)lkTracker.pre_pyr[i]);
+			cv::Mat next_pyrImg(lkTracker.get_pyrH(i),lkTracker.get_pyrW(i),CV_8UC1,(uchar*)lkTracker.next_pyr[i]);
+			cv::Mat subMatImg = next_pyrImg - pyramidImg;
+
+			/*for( int r = 0; r < subMatImg.rows; r++ )
+			{
+				for( int c = 0; c < subMatImg.cols; c++ )
+				{
+					if( subMatImg.at<uchar>(r,c) > 255 )
+						subMatImg.at<uchar>(r,c) = 255;
+
+					if( subMatImg.at<uchar>(r,c) < 0 )
+						subMatImg.at<uchar>(r,c) = 0;
+				}
+			}*/
+
+			imshow("next_pyrImg",next_pyrImg);
+			imshow("pyramidImg",pyramidImg);
+			imshow("subImg",subMatImg);
+			waitKey(10);
+		}
+
+		printf("frameSeq=%d\n",frameSeq);
+		for( int i = 0; i < nPtNum; i++ )
+		{
+			circle(frameImg(cv::Rect(1060,480,380,360)),cv::Point(DisPt[i].x,DisPt[i].y),2,CV_RGB(255,0,0),1);
+			//printf("DisPt[%d]=%0.4f,%0.4f\n",i,DisPt[i].x,DisPt[i].y);
+		}
+		imshow("LeftframeImg",frameImg(cv::Rect(1060,480,380,360)));
+		//imshow("RightframeImg",frameImg(cv::Rect(720,0,720,480)));
+		//imshow("LeftframeImg",frameImg(cv::Rect(720,480,720,480)));
+		cv::waitKey(25);
+		
+
+		//将读出的帧图像保存
+		//---------------------
+		/*ss << "./opticalFlowTestData/1_ImgSet/Right" << frameSeq << ".jpg" ;
+		ss >> writeFilePath;
+		ss.clear();
+		ss.str("");
+		frameGrayImg(cv::Rect(720,0,720,480)).copyTo(smallImg);
+		imwrite(writeFilePath,smallImg);
+
+		ss << "./opticalFlowTestData/1_ImgSet/Left" << frameSeq << ".jpg" ;
+		ss >> writeFilePath;
+		ss.clear();
+		ss.str("");
+		frameGrayImg(cv::Rect(720,480,720,480)).copyTo(smallImg);
+		imwrite(writeFilePath,smallImg);*/
+		//-------------------------
+		frameSeq += 1;
+	}
+
+	delete []testPt;
+	delete []DisPt;
+
+	return RETURN_SUCCESS;
+}
+
 int opticalFlowTest()
 {
 	std::string currentFramePath = "./opticalFlowTestData/secondFram.jpg";
 	std::string nextFramePath = "./opticalFlowTestData/3thFrame.jpg";
+	const char *substring = strrchr(currentFramePath.c_str(),'/');
+	std::string sunString = substring;
+	std::cout << "substring:" << sunString << endl;
+	std::size_t found = currentFramePath.find_last_of("/");
+	std::cout << "path:" << currentFramePath.substr(0,found) << std::endl;
+	std::cout << "file:" << currentFramePath.substr(found+1) << std::endl;
 
 	cv::Mat currentMat = imread(currentFramePath,IMREAD_COLOR);
 	cv::Mat nextMat = imread(nextFramePath,IMREAD_COLOR);
