@@ -46,7 +46,7 @@ using namespace std;
 
 //const double C_PI = 3.141593;
 
-#ifndef  C_PI 3.141593
+#ifndef  C_PI 
 #define  C_PI 3.141593
 
 #endif // ! C_PI 3.141593

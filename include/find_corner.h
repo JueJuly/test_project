@@ -21,6 +21,10 @@ enum OperatorType
 	LAPLACE = 1  //拉普拉斯算子
 };
 
+int print_data_int( unsigned char *p_data, int sx, int ex, int sy, int ey, int n_w );
+int print_data_float( float *pf_data, int sx, int ex, int sy, int ey, int n_w );
+int print_data_mat( cv::Mat data, int sx, int ex, int sy, int ey);
+
 int find_corner_test();
 //以src_pt点为中心点，上下左右偏移offset个像素区域内查找梯度最大的点，
 //将找到的点返回到dst_pt变量中

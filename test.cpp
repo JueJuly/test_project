@@ -5,6 +5,8 @@
 #include "test.h"
 #include "stack_point.h"
 #include "include\find_corner.h"
+#include "ASiftDetector.h"
+#include "utils.h"
 
 //定义输入的图像方向类型
 //#define FRONT_IMG
@@ -33,6 +35,9 @@ void SpatialFunction(double *dstData,int mode_row,int mode_clo,double singa);
 
 void merge_image_to_video();
 
+Mat ExtractSIFTFeature(const string &imgfn, vector<KeyPoint> &points);
+int SiftDetectorTest();
+
 
 int _tmain(int argc, _TCHAR* argv[])
 {
@@ -45,8 +50,16 @@ int _tmain(int argc, _TCHAR* argv[])
 	//float f_temp_val = atan2f(0.34,0.67);
 	//
 	//
+	SiftDetectorTest();
 
-	merge_image_to_video();
+	return 0;
+
+	for( int i = 0; i < 30; i++ )
+	{
+		writeDataToFileTest();
+	}
+
+	//merge_image_to_video();
 	return 0;
 
 	Mat C = Mat::zeros(20,20,CV_32FC1);
@@ -112,7 +125,7 @@ int _tmain(int argc, _TCHAR* argv[])
 			n++;
 		}
 	}*/
-	cv::filter2D(A, C, A.depth(), B );
+	//cv::filter2D(A, C, A.depth(), B );
 
 	//matrix_convolve_compute_1( A, C, B );
 
@@ -189,8 +202,8 @@ int _tmain(int argc, _TCHAR* argv[])
 	*(A2_temp_vec + 3) = *( A2 + 3 );
 
 	Eigen_Jacbi( A2, 2, A2_eigen_vec, A2_eigen_val, 0.001, 100 );
-	temp_val = atan2f(3,4);
-	int n_temp_val = round(4.500);
+	//temp_val = atan2f(3,4);
+	//int n_temp_val = round(4.500);
 	/*if( ( *(A2_eigen_val + 0 ) - *(A2_eigen_val + 1 ) ) > 0.001 )
 	{
 		temp_val = *( A2_eigen_val + 1 );
@@ -240,7 +253,7 @@ int _tmain(int argc, _TCHAR* argv[])
 	cout << "A2_eigen_val = " << endl;
 	cout << "[" <<  *(A2_eigen_val + 0 ) << "," << *(A2_eigen_val + 1) << "；]" << endl;
 
-	Jacobi(A3,A3_eigen_vec,100,2);
+	//Jacobi(A3,A3_eigen_vec,100,2);
 
 	cout << "A3_eigen_vec = " << endl;
 	cout << "[" <<  A3_eigen_vec[0][0] << "," << A3_eigen_vec[0][1] << ";]" << endl;
@@ -633,6 +646,38 @@ void SpatialFunction(double *dstData,int mode_row,int mode_clo,double singa)
 
 }
 
+void writeDataToFileTest()
+{
+	FILE* file_p12 = NULL;
+	static long times12 = 1;
+
+	if( times12 == 1)
+	{
+		if( NULL == fopen("LINE_TV_P12.txt","r+") )
+		{
+			file_p12 = fopen("LINE_TV_P12.txt","a");
+			fclose(file_p12);
+		}
+		file_p12 = fopen("LINE_TV_P12.txt","r+");
+		//fseek(file_p12,0,SEEK_END);
+		fprintf(file_p12,"P12 %d\n",times12);
+
+		fclose(file_p12);
+	}
+
+	file_p12 = fopen("LINE_TV_P12.txt","a");
+	//fseek(file_p12,0,SEEK_END);
+	fprintf(file_p12,"%d %0.4f %0.4f %0.4f %0.4f %0.4f %0.4f\n",times12++,1.0,2.0,3.0,4.0,5.0,6.0);
+
+	fclose(file_p12);
+
+	file_p12 = fopen("LINE_TV_P12.txt","r+");
+	//fseek(file_p12,0,SEEK_SET);
+	fprintf(file_p12,"P12 %d",times12);
+	fclose(file_p12);
+
+}
+
 void test1()
 {
 	
@@ -645,6 +690,14 @@ void test1()
 // 	double **out_imge = (double **)CComlib::fspace_2d(row,clo,sizeof(double));
 
 	Mat srcImg = imread( "D:/project/test/test/ChangAn_2/Front.bmp", IMREAD_COLOR);
+	Mat grayImg = imread( "D:/project/test/test/ChangAn_2/Front.bmp", IMREAD_GRAYSCALE);
+	Mat colorImg = Mat(grayImg.cols,grayImg.rows,CV_8UC3);
+	cvtColor(grayImg,colorImg, CV_GRAY2RGB);
+	putText(grayImg,"test word.........",Point(50,50),\
+				CV_FONT_HERSHEY_PLAIN, 1.2, CV_RGB(0,255,0),2);
+	imshow("grayImg",grayImg);
+	imshow("colorImg",colorImg);
+	waitKey(0);
 
 	//BYTE *imge = (BYTE *)FileIO::Read8BitBmpFile2Img("2.bmp",&clo,&row);
 	int row = srcImg.rows;
@@ -1622,4 +1675,89 @@ void merge_image_to_video()
 	destroyAllWindows();
 
 
+}
+// 提取sift特征
+Mat ExtractSIFTFeature(const string &imgfn, vector<KeyPoint> &points)  
+{
+	auto img = imread(imgfn, true);    //imgfn: image file name
+	SiftFeatureDetector detector;
+	vector<KeyPoint> keypoints;
+	detector.detect(img, keypoints);
+	SiftDescriptorExtractor extractor;
+	Mat descriptors;
+	if (!keypoints.size()) {
+		return Mat();
+	}
+	// extract sift feature
+	extractor.compute(img, keypoints, descriptors);
+	//points.resize(keypoints.size());
+	for (int i = 0; i < keypoints.size(); i++){
+		points.push_back(keypoints[i]);
+	}
+	return descriptors;
+}
+int SiftDetectorTest()
+{
+	// insert code here...
+    string imgfn = "./link/DSC_2625_resize.jpg";
+    Mat queryImage, queryBlackImg, qDescriptor;
+    queryImage = imread(imgfn);
+    vector<KeyPoint> qKeypoints;
+    qDescriptor = ExtractSIFTFeature(imgfn, qKeypoints);
+    /*drawKeypoints(queryImage, qKeypoints, queryBlackImg);
+    imshow("Sift", queryBlackImg);
+    cvWaitKey(0);*/
+    
+    string objFileName = "./link/DSC_2624_resize.jpg";
+    Mat objectImage, objBlackImg, objDesriptor;
+    objectImage = imread(objFileName);
+    vector<KeyPoint> objKeypoints;
+    objDesriptor = ExtractSIFTFeature(objFileName, objKeypoints);
+    /*drawKeypoints(objectImage, objKeypoints, objBlackImg);
+    imshow("Sift", objBlackImg);
+    cvWaitKey(0);*/
+    
+    //直接找1近邻，SIFT找匹配点
+    FlannBasedMatcher matcher;
+    vector< DMatch > matches1;
+    matcher.match(qDescriptor, objDesriptor, matches1);
+    findInliers(qKeypoints, objKeypoints, matches1, imgfn, objFileName); // 通过1近邻匹配的点对
+    
+    // 使用Lowe的raw feature方法匹配
+    vector<Point2f> qeK, obK;
+    vector<vector<DMatch>> matches;
+    vector<DMatch> good_matches2;
+    matcher.knnMatch(qDescriptor, objDesriptor, matches, 2);
+    for (size_t i = 0; i < matches.size(); i++){
+        if (matches[i][0].distance < 0.8*matches[i][1].distance){
+            good_matches2.push_back(matches[i][0]);
+            qeK.push_back(qKeypoints[matches[i][0].queryIdx].pt);
+            obK.push_back(objKeypoints[matches[i][1].trainIdx].pt);
+        }
+    }
+    findInliers(qKeypoints, objKeypoints, good_matches2, imgfn, objFileName); // 通过Lowe匹配的点对
+
+    
+    /*ASiftDetector asiftDetector;
+    vector<KeyPoint> asiftKeypoints_query;
+    Mat asiftDescriptors_query;
+    asiftDetector.detectAndCompute(queryImage, asiftKeypoints_query, asiftDescriptors_query);
+    vector<KeyPoint> asiftKeypoints_object;
+    Mat asiftDescriptors_object;
+    asiftDetector.detectAndCompute(objectImage, asiftKeypoints_object, asiftDescriptors_object);*/
+    
+    /*//Matching descriptor vectors using FLANN matcher, ASIFT找匹配点
+    std::vector< DMatch > asiftMatches;
+    matcher.match(asiftDescriptors_query, asiftDescriptors_object, asiftMatches);
+    findInliers(asiftKeypoints_query, asiftKeypoints_object, asiftMatches, imgfn, objFileName);*/
+    
+    // 使用内置函数画匹配点对
+    /*Mat img_matches;
+     drawMatches( queryImage, qKeypoints, objectImage, objKeypoints,
+     matches, img_matches, Scalar::all(-1), Scalar::all(-1),
+     vector<char>(), DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS );
+     imshow("Good Matches & Object detection", img_matches);
+     waitKey(0);*/
+    
+    return 0;
 }

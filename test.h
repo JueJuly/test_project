@@ -48,4 +48,6 @@ void Resize_image_4();
 
 void Image2double_test();
 
+void writeDataToFileTest();
+
 #endif

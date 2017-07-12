@@ -71,14 +71,14 @@ typedef struct CORNER_PT_2F
 	ws_Point2f *Point2f;
 	int n_num;
 
-}corner_pt_2f;
+}CornerPt2f;
 
 typedef struct CORNER_PT
 {
 	ws_Point *Point;
 	int n_num;
 
-}corner_pt;
+}CornerPt;
 
 
 
