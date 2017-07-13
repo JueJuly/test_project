@@ -50,7 +50,9 @@ int _tmain(int argc, _TCHAR* argv[])
 	//float f_temp_val = atan2f(0.34,0.67);
 	//
 	//
-	SiftDetectorTest();
+
+	//SiftDetectorTest();
+	FindCorner_ShiThomas::run();
 
 	return 0;
 

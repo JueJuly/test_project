@@ -21,6 +21,26 @@ enum OperatorType
 	LAPLACE = 1  //拉普拉斯算子
 };
 
+namespace FindCorner_ShiThomas
+{
+	template<typename T> struct greaterThanPtr
+	{
+		bool operator()(const T* a, const T* b) const { return *a > *b; }
+	};
+
+	int CornerDetect( cv::Mat grayImg, vector<cv::Point2f> &corner,int &ncorner, int nMaxCornerNum, \
+		double dqualityLevel = 0.01, int nMinDistance = 10, int nblockSize = 3 );
+
+	int cornerMinEigenVal( cv::Mat grayImg, cv::Mat &eig, int nblockSize = 3, int nkSize = 3);
+
+	int boxFilter( cv::Mat srcImg, cv::Mat dstImg, int nblockSize = 3);
+
+	int maxMinValLoc( cv::Mat img, double &dMaxVal, cv::Point &maxValPos, double &dMinVal, cv::Point &minValPos);
+
+	int run();
+
+}
+
 int print_data_int( unsigned char *p_data, int sx, int ex, int sy, int ey, int n_w );
 int print_data_float( float *pf_data, int sx, int ex, int sy, int ey, int n_w );
 int print_data_mat( cv::Mat data, int sx, int ex, int sy, int ey);
