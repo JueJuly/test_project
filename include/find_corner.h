@@ -21,21 +21,54 @@ enum OperatorType
 	LAPLACE = 1  //拉普拉斯算子
 };
 
+
+
+
 namespace FindCorner_ShiThomas
 {
+	typedef struct MV_POINT
+	{
+		int x;
+		int y;
+	}mvPoint;
+
+	typedef struct  MV_FEATURE
+	{
+		float fval;
+		mvPoint coord;
+		int nNum;
+	}mvFeature;
+
 	template<typename T> struct greaterThanPtr
 	{
 		bool operator()(const T* a, const T* b) const { return *a > *b; }
 	};
 
-	int CornerDetect( cv::Mat grayImg, vector<cv::Point2f> &corner,int &ncorner, int nMaxCornerNum, \
-		double dqualityLevel = 0.01, int nMinDistance = 10, int nblockSize = 3 );
+	bool CMP( const mvFeature &a, const mvFeature &b );
+
+	int CornerDetect( cv::Mat grayImg, vector<cv::Point2f> &corner,int &ncorner, vector<mvFeature> &vecFeature, \
+		int nMaxCornerNum, double dqualityLevel = 0.01, int nMinDistance = 10, int nblockSize = 3 );
 
 	int cornerMinEigenVal( cv::Mat grayImg, cv::Mat &eig, int nblockSize = 3, int nkSize = 3);
+	int cornerMinEigenVal_c( unsigned char *grayImgData, int w, int h, float *eigData, \
+								int nblockSize = 3, int nkSize = 3 );
 
 	int boxFilter( cv::Mat srcImg, cv::Mat dstImg, int nblockSize = 3);
+	//int filter_c( unsigned char *srcImg, int w, int h, unsigned char *dstImg,int blockSize = 3);
+	int filter_c( float *srcImg, int w, int h, float *dstImg,int blockSize = 3, bool bnormalize = true );
+
+	int sobel_x( unsigned char *srcImg, int w, int h, float *dstImg, 
+					int ksize = 3, double dscale = 1.0,double ddelta = 0.0 );
+
+	int sobel_y( unsigned char *srcImg, int w, int h, float *dstImg, 
+					int ksize = 3, double dscale = 1.0,double ddelta = 0.0 );
 
 	int maxMinValLoc( cv::Mat img, double &dMaxVal, cv::Point &maxValPos, double &dMinVal, cv::Point &minValPos);
+	int getMaxVal( float *srcData, int w, int h, double &dmaxVal );
+	int threshold_ToZero( float *srcData, float *dstData, int w, int h, double threshold );
+	int dilate_c( float *srcData, float *dstData, int w, int h );
+	int sort_cplusplus( vector<float *> &tempCorner, bool ascend = true );
+	int sort_c( mvFeature *cornerFeature, bool ascend = true );
 
 	int run();
 

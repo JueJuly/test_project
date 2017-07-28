@@ -442,7 +442,7 @@ int find_max_grad_corner( cv::Mat o_gray_img, cv::Point src_pt, cv::Point &dst_p
 	corner_point.Point = (ws_Point *)malloc(sizeof(ws_Point)*n_h*n_w);
 	corner_point.n_num = 0;
 
-
+	return 0;
 
  }
 
@@ -3428,23 +3428,28 @@ int compute_array_dot_product( float *input_array1, float *input_array2, float *
 
 int FindCorner_ShiThomas::run()
 {
-	cv::Mat colorImg = imread("./changchunyingjia/H_back1000.bmp");
+	cv::Mat colorImg = imread("./test_img/bmp/back.bmp");
+	cv::Mat maskImg = imread("./test_img/bmp/back_mask_image.bmp");
+	cv::Mat colorMaskImg;
+
+	colorImg.copyTo(colorMaskImg,maskImg);
 
 	if( !colorImg.data )
 	{
 		return -1;
 	}
 	cv::Mat grayImg ;
-	cvtColor( colorImg, grayImg, CV_RGB2GRAY );
-	namedWindow("ShiThomasCornerDetect",CV_WINDOW_AUTOSIZE);
+	cvtColor( colorMaskImg, grayImg, CV_RGB2GRAY );
+	//namedWindow("ShiThomasCornerDetect",CV_WINDOW_AUTOSIZE);
 	vector<cv::Point2f> corner;
-	int nMaxCorner = 360;
+	vector<mvFeature> FeatureVec;
+	int nMaxCorner = 85;
 	int ncorners = 0;
 	double dQualityLevel = 0.01;
 	double dMinDist = 10;
 	int nblockSize = 3;
 
-	FindCorner_ShiThomas::CornerDetect( grayImg, corner, ncorners,nMaxCorner, dQualityLevel,\
+	FindCorner_ShiThomas::CornerDetect( grayImg, corner, ncorners,FeatureVec,nMaxCorner, dQualityLevel,\
 											dMinDist, nblockSize );
 
 	cout << " the detect corner:" << corner.size() << endl;
@@ -3452,6 +3457,8 @@ int FindCorner_ShiThomas::run()
 	for( int i = 0; i < corner.size(); i++ )
 	{
 		cv::circle( colorImg, cv::Point((int)corner[i].x,(int)corner[i].y),4,cv::Scalar(0,255,0),-1);
+		printf("corner(%d,%d):%0.4f\n",(int)corner[i].x,(int)corner[i].y,FeatureVec[i].fval );
+		
 	}
 
 	imshow("ShiThomasCornerDetect",colorImg);
@@ -3464,34 +3471,68 @@ int FindCorner_ShiThomas::run()
 }
 
 int FindCorner_ShiThomas::CornerDetect( cv::Mat grayImg, vector<cv::Point2f> &corners, int &ncorners,\
-									   int nmaxCornerNum, double dqualityLevel, int nminDist, int nblocksize)
+									   vector<mvFeature> &FeatureVec, int nmaxCornerNum, double dqualityLevel,\
+									   int nminDist, int nblocksize)
 {
 	if( dqualityLevel <= 0 || nminDist < 0 || nmaxCornerNum < 0 )
 	{
 		std::cout << "input param is incorrect!" << endl;
 		return -1;
 	}
-
+	mvFeature temp;
 	Mat image = grayImg.clone();
 	Mat eig(image.rows,image.cols,CV_32FC1);
-	Mat dilateImg;
+	Mat dilateImg(image.rows,image.cols,CV_32FC1);
 
-	cornerMinEigenVal( image, eig, nblocksize, 3 );
+	float *eigData = (float *)malloc( image.rows*image.cols*sizeof(float) );
+	float *eigDilateData = (float *)malloc( image.rows*image.cols*sizeof(float) );
 
-	double dMaxVal;
-	double dMinVal;
+	//FindCorner_ShiThomas::cornerMinEigenVal( image, eig, nblocksize, 3 );
+	FindCorner_ShiThomas::cornerMinEigenVal_c( image.data, image.cols, image.rows, eigData, nblocksize,3);
+
+	/*for( int h = 0; h < image.rows; h++ )
+	{
+		for( int w = 0; w < image.cols; w++ )
+		{
+			eig.at<float>(h,w) = eigData[h*image.cols+w];
+		}
+	}*/
+
+	double dMaxVal = 0;
+	double dMinVal = 0;
 	cv::Point maxValPos;
 	cv::Point minValPos;
 
-	maxMinValLoc( eig, dMaxVal, maxValPos, dMinVal, minValPos );
+	FindCorner_ShiThomas::getMaxVal( eigData, image.cols, image.rows, dMaxVal );
+	FindCorner_ShiThomas::threshold_ToZero( eigData, eigData, image.cols, image.rows, dMaxVal*dqualityLevel );
 
-	cv::threshold( eig, eig, dMaxVal*dqualityLevel, 0, THRESH_TOZERO );
+	//maxMinValLoc( eig, dMaxVal, maxValPos, dMinVal, minValPos );
+	for( int h = 0; h < image.rows; h++ )
+	{
+		for( int w = 0; w < image.cols; w++ )
+		{
+			eig.at<float>(h,w) = eigData[h*image.cols+w];
+		}
+	}
+	//cv::threshold( eig, eig, dMaxVal*dqualityLevel, 0, THRESH_TOZERO );
+	FindCorner_ShiThomas::dilate_c( eigData, eigDilateData, image.cols, image.rows );
 
-	cv::dilate( eig, dilateImg, Mat());
+	for( int h = 0; h < image.rows; h++ )
+	{
+		for( int w = 0; w < image.cols; w++ )
+		{
+			dilateImg.at<float>(h,w) = eigDilateData[h*image.cols+w];
+		}
+	}
+	//Mat element = getStructuringElement(MORPH_RECT, Size(3, 3));
+	//cv::dilate( eig, dilateImg, element );
 
 	cv::Size imgsize = image.size();
 
 	vector<const float*> tmpCorners;  //存放粗选出的角点地址  
+	mvFeature *cornerFeature = (mvFeature *)malloc(sizeof(mvFeature)*imgsize.width*imgsize.height);
+	cornerFeature->nNum = 0;
+	vector<mvFeature> vecFeature;
 
 	// collect list of pointers to features - put them into temporary image   
 	for( int y = 1; y < imgsize.height - 1; y++ )  
@@ -3503,12 +3544,37 @@ int FindCorner_ShiThomas::CornerDetect( cv::Mat grayImg, vector<cv::Point2f> &co
 		for( int x = 1; x < imgsize.width - 1; x++ )  
 		{  
 			float val = eig_data[x];  
-			if( val != 0 && val == tmp_data[x] )  //val == tmp_data[x]说明这是局部极大值  
+			if( val != 0 && val == tmp_data[x] )  //val == tmp_data[x]说明这是局部极大值 
+			{
 				tmpCorners.push_back(eig_data + x);  //保存其位置  
+				cornerFeature[cornerFeature->nNum].fval = val;
+				cornerFeature[cornerFeature->nNum].coord.x = x;
+				cornerFeature[cornerFeature->nNum].coord.y = y;
+				
+				vecFeature.push_back( cornerFeature[cornerFeature->nNum] );
+				cornerFeature->nNum++;
+
+			}
 		}  
 	}  
 
-	sort( tmpCorners, greaterThanPtr<float>() );  //按特征值降序排列，注意这一步很重要，后面的很多编程思路都是建立在这个降序排列的基础上  
+	vector<float*> tmpCorners_1;  //存放粗选出的角点地址  
+	for( int i = 0; i < tmpCorners.size(); i++ )
+	{
+		tmpCorners_1.push_back( (float *)tmpCorners[i] );
+	}
+
+	//按特征值降序排列，注意这一步很重要，
+	//后面的很多编程思路都是建立在这个降序排列的基础上  
+	//sort( tmpCorners, greaterThanPtr<float>() );
+	sort( vecFeature.begin(), vecFeature.end(), CMP );
+	//FindCorner_ShiThomas::sort_cplusplus(tmpCorners_1, false );
+	FindCorner_ShiThomas::sort_c( cornerFeature, false );
+
+	for( int i = 0; i < tmpCorners.size(); i++ )
+	{
+		tmpCorners[i] = tmpCorners_1[i];
+	}
     //vector<Point2f> corners;  
 	ncorners = 0;
     size_t i, j, total = tmpCorners.size();  
@@ -3528,14 +3594,23 @@ int FindCorner_ShiThomas::CornerDetect( cv::Mat grayImg, vector<cv::Point2f> &co
   
         std::vector<std::vector<Point2f> > grid(grid_width*grid_height);  //vector里面是vector，grid用来保存获得的强角点坐标  
   
-        nminDist *= nminDist;  //平方，方面后面计算，省的开根号  
+        nminDist *= nminDist;  //平方，方便后面的计算，省的开根号  
   
         for( i = 0; i < total; i++ )     // 刚刚粗选的弱角点，都要到这里来接收新一轮的考验  
         {  
             int ofs = (int)((const uchar*)tmpCorners[i] - eig.data);  //tmpCorners中保存了角点的地址，eig.data返回eig内存块的首地址  
-            int y = (int)(ofs / eig.step);   //角点在原图像中的行  
-            int x = (int)((ofs - y*eig.step)/sizeof(float));  //在原图像中的列  
-  
+            //int y = (int)(ofs / eig.step);   //角点在原图像中的行  
+            //int x = (int)((ofs - y*eig.step)/sizeof(float));  //在原图像中的列 
+			//int y = vecFeature[i].coord.y;
+			//int x = vecFeature[i].coord.x;
+
+			int y = cornerFeature[i].coord.y;
+			int x = cornerFeature[i].coord.x;
+
+			temp.coord.y = y;
+			temp.coord.x = x;
+			temp.fval = vecFeature[i].fval;
+
             bool good = true;  //先认为当前角点能接收考验，即能被保留下来  
   
             int x_cell = x / cell_size;  //x_cell，y_cell是角点（y,x）在grid中的对应坐标  
@@ -3559,16 +3634,21 @@ int FindCorner_ShiThomas::CornerDetect( cv::Mat grayImg, vector<cv::Point2f> &co
                 {  
                     vector <Point2f> &m = grid[yy*grid_width + xx];  //引用  
   
-                    if( m.size() )  //如果(y_cell，x_cell)的4邻域像素，也就是(y,x)的minDistance邻域像素中已有被保留的强角点  
+					//如果(y_cell，x_cell)的4邻域像素，
+					//也就是(y,x)的minDistance邻域像素中已有被保留的强角点  
+                    if( m.size() )  
                     {                 
                         for(j = 0; j < m.size(); j++)   //当前角点周围的强角点都拉出来跟当前角点比一比  
                         {  
                             float dx = x - m[j].x;  
                             float dy = y - m[j].y;  
-               //注意如果(y,x)的minDistance邻域像素中已有被保留的强角点，则说明该强角点是在(y,x)之前就被测试过的，又因为tmpCorners中已按照特征值降序排列（特征值越大说明角点越好），这说明先测试的一定是更好的角点，也就是已保存的强角点一定好于当前角点，所以这里只要比较距离，如果距离满足条件，可以立马扔掉当前测试的角点  
+               //注意如果(y,x)的minDistance邻域像素中已有被保留的强角点，则说明该强角点是在(y,x)之前就被测试过的，
+			   //又因为tmpCorners中已按照特征值降序排列（特征值越大说明角点越好），这说明先测试的一定是更好的角点，
+				//也就是已保存的强角点一定好于当前角点，所以这里只要比较距离，如果距离满足条件，
+				//可以立马扔掉当前测试的角点  
                             if( dx*dx + dy*dy < nminDist )  
                             {                                                         
-                good = false;  
+								good = false;  
                                 goto break_out;  
                             }  
                         }  
@@ -3584,10 +3664,13 @@ int FindCorner_ShiThomas::CornerDetect( cv::Mat grayImg, vector<cv::Point2f> &co
                 //    i,x, y, x_cell, y_cell, (int)minDistance, cell_size,x1,y1,x2,y2, grid_width,grid_height,c);  
                 grid[y_cell*grid_width + x_cell].push_back(Point2f((float)x, (float)y));  
   
-                corners.push_back(Point2f((float)x, (float)y));  
+                corners.push_back( Point2f((float)x, (float)y) );  
+				FeatureVec.push_back( temp );
                 ++ncorners;  
   
-                if( nmaxCornerNum > 0 && (int)ncorners == nmaxCornerNum )  //由于前面已按降序排列，当ncorners超过maxCorners的时候跳出循环直接忽略tmpCorners中剩下的角点，反正剩下的角点越来越弱  
+				//由于前面已按降序排列，当ncorners超过maxCorners的时候跳出循环直接忽略tmpCorners中剩下的角点，
+				//反正剩下的角点越来越弱 
+                if( nmaxCornerNum > 0 && (int)ncorners == nmaxCornerNum )   
                     break;  
             }  
         }  
@@ -3639,6 +3722,249 @@ int FindCorner_ShiThomas::CornerDetect( cv::Mat grayImg, vector<cv::Point2f> &co
 	return 0;
 }
 
+bool FindCorner_ShiThomas::CMP( const mvFeature &a, const mvFeature &b )
+{
+	return a.fval > b.fval;
+}
+
+int FindCorner_ShiThomas::sort_c( mvFeature *cornerFeature, bool ascend )
+{
+	int nTotal = cornerFeature->nNum;
+	int i,j;
+	float tempVal;
+	mvPoint pt;
+	
+	if( 0 == cornerFeature->nNum )
+	{
+		return -1;
+	}
+
+	if( ascend )
+	{
+		for( i = 0; i < nTotal-1; i++ )
+		{
+			for( j = 0; j < nTotal-i-1; j++ )
+			{
+				if( cornerFeature[j].fval > cornerFeature[j+1].fval )
+				{
+					tempVal = cornerFeature[j+1].fval;
+					cornerFeature[j+1].fval = cornerFeature[j].fval;
+					cornerFeature[j].fval = tempVal;
+
+					pt.x = cornerFeature[j+1].coord.x;
+					pt.y = cornerFeature[j+1].coord.y;
+
+					cornerFeature[j+1].coord.y = cornerFeature[j].coord.y;
+					cornerFeature[j+1].coord.x = cornerFeature[j].coord.x;
+
+					cornerFeature[j].coord.y = pt.y;
+					cornerFeature[j].coord.x = pt.x;
+					//nNum++;
+				}
+
+			}
+		}
+	}
+	else
+	{
+		for( i = 0; i < nTotal-1; i++ )
+		{
+			for( j = 0; j < nTotal-i-1; j++ )
+			{
+				if( cornerFeature[j].fval < cornerFeature[j+1].fval )
+				{
+					tempVal = cornerFeature[j+1].fval;
+					cornerFeature[j+1].fval = cornerFeature[j].fval;
+					cornerFeature[j].fval = tempVal;
+
+					pt.x = cornerFeature[j+1].coord.x;
+					pt.y = cornerFeature[j+1].coord.y;
+
+					cornerFeature[j+1].coord.y = cornerFeature[j].coord.y;
+					cornerFeature[j+1].coord.x = cornerFeature[j].coord.x;
+
+					cornerFeature[j].coord.y = pt.y;
+					cornerFeature[j].coord.x = pt.x;
+					//nNum++;
+				}
+
+			}
+		}
+	}
+
+	return 0;
+}
+
+int FindCorner_ShiThomas::sort_cplusplus( vector<float *> &tempCorner, bool ascend )
+{
+	int ntotal = tempCorner.size();
+	int i,j;
+	float *temp = NULL;
+	int nNum = 0;
+
+	if( tempCorner.empty() )
+	{
+		return -1;
+	}
+
+	if( ascend ) //按升序排列
+	{
+		for( i = 0; i < ntotal-1; i++ )
+		{
+			for( j = 0; j < ntotal-i-1; j++ )
+			{
+				if( *(tempCorner[j]) >= *(tempCorner[j+1]) )
+				{
+					temp = tempCorner[j+1];
+					tempCorner[j+1] = tempCorner[j];
+					tempCorner[j] = temp;
+					nNum++;
+				}
+
+				if( nNum > 720 )
+				{
+					return 0;
+				}
+			}
+		}
+	}
+	else //按降序排列
+	{
+		for( i = 0; i < ntotal-1; i++ )
+		{
+			for( j = 0; j < ntotal-i-1; j++ )
+			{
+				if( *(tempCorner[j]) <= *(tempCorner[j+1]) )
+				{
+					temp = tempCorner[j+1];
+					tempCorner[j+1] = tempCorner[j];
+					tempCorner[j] = temp;
+					nNum++;
+				}
+
+				if( nNum > 720 )
+				{
+					return 0;
+				}
+			}
+		}
+	}
+
+	return 0;
+}
+
+//膨胀操作，使用的核为3*3的
+int FindCorner_ShiThomas::dilate_c( float *srcData, float *dstData, int w, int h )
+{
+	//3*3 neighbourhood max val
+	float fMaxVal = 0;
+
+	//loop index
+	int i,j,m,n;
+	if( !srcData || !dstData )
+	{
+		return -1;
+	}
+
+	memset( (float*)dstData, 0, sizeof(float)*h*w );
+	memcpy( (float*)dstData, (float *)srcData, sizeof(float)*h*w );
+
+	for( i = 1; i < h-1; i++ )
+	{
+		for( j = 1; j < w-1; j++ )
+		{
+			//fMaxVal = 0.0f;
+
+			if( dstData[i*w+j] > 0.0f )
+			{
+				for( m = -1; m <= 1; m++ )
+				{
+					for( n = -1; n <= 1; n++ )
+					{
+						if( dstData[(i+m)*w+(j+n)] <= 0.00001f )
+						{
+							dstData[(i+m)*w+(j+n)] = dstData[i*w+j];
+						}
+					}
+				}
+			}
+
+			//for( m = -1; m <= 1; m++ )
+			//{
+			//	if( srcData[(i+m)*w+(j-1)] != 0.0 || \
+			//		srcData[(i+m)*w+(j-0)] != 0.0 || \
+			//		srcData[(i+m)*w+(j+1)] != 0.0 )
+			//	{
+			//		fMaxVal = srcData[(i+m)*w+(j+1)];
+			//		//printf("fMaxVal:%0.4f\n",fMaxVal);
+			//		for( n = -1; n <= 1; n++ )
+			//		{
+			//			if( srcData[(i+m)*w+(j+n)] != 0.0 )
+			//			{
+			//				dstData[i*w+j] = srcData[(i+m)*w+(j+n)];
+			//				break;
+			//			}
+			//		}
+			//		break;
+			//	}
+			//}
+
+		}
+	}
+
+	return 0;
+}
+
+//得到数组的最大值
+int FindCorner_ShiThomas::getMaxVal( float *srcData, int w, int h, double &dmaxVal )
+{
+	//loop index
+	int i = 0;
+	int size = w*h;
+
+	if( !srcData )
+	{
+		return -1;
+	}
+
+	dmaxVal = 0.0f;
+
+	for(i = 0; i < size; i++ )
+	{
+		if( (double)(srcData[i]) > dmaxVal )
+		{
+			dmaxVal = (double)srcData[i];
+		}
+	}
+
+	return 0;
+}
+
+int FindCorner_ShiThomas::threshold_ToZero( float *srcData, float *dstData, int w, int h, double threshold )
+{
+	int i = 0;
+	int size = w*h;
+
+	if( !srcData )
+	{
+		return -1;
+	}
+
+	for( i = 0; i < size; i++ )
+	{
+		if( (double)(srcData[i]) > threshold )
+		{
+			dstData[i] = srcData[i];
+		}
+		else
+		{
+			dstData[i] = 0.0f;
+		}
+	}
+
+	return 0;
+}
+
 int FindCorner_ShiThomas::maxMinValLoc( cv::Mat img, double &dMaxVal, cv::Point &maxValPos, \
 									   double &dMinVal, cv::Point &minValPos)
 {
@@ -3663,15 +3989,378 @@ int FindCorner_ShiThomas::maxMinValLoc( cv::Mat img, double &dMaxVal, cv::Point 
 
 int FindCorner_ShiThomas::boxFilter( cv::Mat srcImg, cv::Mat dstImg, int nblockSize )
 {
-	if( !srcImg.data )
+	if( !srcImg.data || !dstImg.data )
 	{
 		return -1;
 	}
 
 	boxFilter(srcImg, dstImg, srcImg.depth(), Size(nblockSize, nblockSize),Point(-1,-1), false );
 
+	//FindCorner_ShiThomas::filter_c( srcImg.data, srcImg.cols, srcImg.rows, dstImg.data, 3);
+
 	return 0;
 
+}
+
+/*
+ *-------------------------------------------------------
+ * Brief： //单方向的sobel滤波,x方向
+ * Return: int类型
+ * Param：
+ *		1、float *p_src_data	in		输入的源数据 	
+ *		2、float *p_dst_data	inout	输出的处理后的数据
+ *		3、int n_width			in		源图像数据的宽度
+ *		4、int n_height			in		源图像数据的高度
+ * Fan in: find_corner()
+ * Fan out：
+ * Version:
+ *		v1.0	2017.5.23 create by July，the first version
+ * Note:
+ *		只针对单通道的图像,图像的边缘不作处理
+ *---------------------------------------------------------
+ */
+int FindCorner_ShiThomas::sobel_x( unsigned char *srcImg, int w, int h, float *dstImg, \
+										int ksize, double dscale, double ddelta )
+{
+	int n_h = h;
+	int n_w = w;
+
+	int r = 0;
+	int c = 0;
+
+	float *dst_data = NULL;
+
+	if( NULL == srcImg )
+	{
+		printf(" p_src_data is NULL!\n");
+		return -1;
+	}
+
+	memset( (float*)dstImg, 0, sizeof(float)*n_w*n_h );
+
+	for( r = 1; r < n_h-1; r++ )
+	{
+		dst_data = dstImg + r * n_w;
+
+		for( c = 1; c < n_w-1; c++ )
+		{
+			dst_data[c] += srcImg[(r-1)*n_w+c+1] - srcImg[(r-1)*n_w+c-1];
+			dst_data[c] += (srcImg[(r)*n_w+c+1] - srcImg[(r)*n_w+c-1])*2;
+			dst_data[c] += srcImg[(r+1)*n_w+c+1] - srcImg[(r+1)*n_w+c-1];
+
+			if( dscale != 1.0f )
+			{
+				dst_data[c] = (float)(dst_data[c] * dscale + ddelta);
+			}
+		}
+	}
+
+	return 0;
+}
+
+/*
+ *-------------------------------------------------------
+ * Brief： //单方向的sobel滤波,y方向
+ * Return: int类型
+ * Param：
+ *		1、float *p_src_data	in		输入的源数据 	
+ *		2、float *p_dst_data	inout	输出的处理后的数据
+ *		3、int n_width			in		源图像数据的宽度
+ *		4、int n_height			in		源图像数据的高度
+ * Fan in: find_corner()
+ * Fan out：
+ * Version:
+ *		v1.0	2017.5.23 create by July，the first version
+ * Note:
+ *		只针对单通道的图像,图像的边缘不作处理
+ *---------------------------------------------------------
+ */
+int FindCorner_ShiThomas::sobel_y( unsigned char *srcImg, int w, int h, float *dstImg, 
+										int ksize, double dscale, double ddelta )
+{
+	int n_h = h;
+	int n_w = w;
+
+	int r = 0;
+	int c = 0;
+
+	float *dst_data = NULL;
+
+	if( NULL == srcImg )
+	{
+		printf(" p_src_data is NULL!\n");
+		return -1;
+	}
+
+	memset( (float*)dstImg, 0, sizeof(float)*n_w*n_h );
+
+	for( r = 1; r < n_h-1; r++ )
+	{
+		dst_data = dstImg + r * n_w;
+
+		for( c = 1; c < n_w-1; c++ )
+		{
+			dst_data[c] += (float)(srcImg[(r+1)*n_w+c-1] - srcImg[(r-1)*n_w+c-1]);
+			dst_data[c] += (float)(srcImg[(r+1)*n_w+c] - srcImg[(r-1)*n_w+c])*2;
+			dst_data[c] += (float)(srcImg[(r+1)*n_w+c+1] - srcImg[(r-1)*n_w+c+1]);
+			
+			if( dscale != 1.0f )
+			{
+				dst_data[c] = (float)(dst_data[c] * dscale + ddelta);
+			}
+		}
+	}
+
+	return 0;
+}
+
+//方框滤波，是否归一化要看参数bnormalize,true:归一化，flase：不进行归一化
+//归一化系数为1/(w*h);
+int FindCorner_ShiThomas::filter_c( float *srcImg, int w, int h, float *dstImg,\
+										int blockSize, bool bnormalize )
+{
+	// filter window param
+	int nWinX = blockSize;
+	int nWinY = blockSize;
+
+	int nWin = nWinX*nWinY;
+
+	int nHalfWin = (int)(blockSize/2);
+
+	//temp data pointer
+	float *srcData = NULL;
+	float *dstData = NULL;
+
+	float *tempData = NULL;
+
+	tempData = (float *)malloc( w * h * sizeof(float) );
+	memset( tempData,0,w*h*sizeof(float) );
+
+	//loop index
+	int r,c,i,j;
+
+	if( NULL == srcImg || NULL == dstImg )
+	{
+		return -1;
+	}
+
+	memcpy( dstImg, srcImg, w*h*sizeof(float) );
+
+	for( r = nHalfWin; r < h-nHalfWin; r++ )
+	{
+		for( c = nHalfWin; c <w-nHalfWin; c++ )
+		{
+
+			for( i = -nHalfWin; i <= nHalfWin; i++ )
+			{
+				for( j = -nHalfWin; j <= nHalfWin; j++ )
+				{
+					dstImg[r*w+c] += srcImg[(r+i)*w+(c+j)];
+				}
+			}
+
+		}
+	}
+
+	/*
+	//求积分图
+	for( r = 0; r < h; r++ )
+	{
+		for( c = 0; c < w; c++ )
+		{
+			if( 0 == r )
+			{
+				if( 0 == c )
+				{
+					tempData[r*w+c] = srcImg[r*w+c];
+				}
+				else if( c > 0 )
+				{
+					tempData[r*w+c] = tempData[r*w+c-1] + srcImg[r*w+c];
+				}
+
+			}
+			else if( r > 0 )
+			{
+				if( 0 == c )
+				{
+					tempData[r*w+c] = srcImg[r*w+c];
+				}
+				else if( c > 0 )
+				{
+					tempData[r*w+c] = tempData[r*w+c-1] + srcImg[r*w+c];
+					tempData[r*w+c] = tempData[r*w+c] + tempData[(r-1)*w+c];
+				}
+
+			}
+
+		}
+	}
+
+	//滤波
+	for( r = nHalfWin; r < h-nHalfWin; r++ )
+	{
+		for( c = nHalfWin; c < w-nHalfWin; c++ )
+		{
+			dstImg[r*w+c] = tempData[r*w+c] - tempData[(r-nHalfWin)*w+c] - \
+							tempData[r*w+c-nHalfWin] + tempData[(r-nHalfWin)*w+c-nHalfWin];
+
+			if( bnormalize )
+			{
+				dstImg[r*w+c] /= w*h;
+			}
+		}
+	}
+	*/
+
+	free(tempData);
+	tempData = NULL;
+
+	return 0;
+}
+
+int FindCorner_ShiThomas::cornerMinEigenVal_c( unsigned char *grayImgData, int w, int h, 
+													float *eigData, int nblockSize, int nkSize )
+{
+	double scale = (double)( 1 << ((nkSize > 0 ? nkSize : 3) - 1) ) * nblockSize;
+
+	float *Dx = (float *)malloc( w*h*sizeof(float) );
+	float *Dy = (float *)malloc( w*h*sizeof(float) );
+
+	const float* dxdata = NULL;
+	const float* dydata	 = NULL;
+
+	float *Ix2 = (float *)malloc( w*h*sizeof(float) );
+	float *IxIy = (float *)malloc( w*h*sizeof(float) );
+	float *Iy2 = (float *)malloc( w*h*sizeof(float) );
+
+	float *Ix2_filter = (float *)malloc( w*h*sizeof(float) );
+	float *IxIy_filter = (float *)malloc( w*h*sizeof(float) );
+	float *Iy2_filter = (float *)malloc( w*h*sizeof(float) );
+
+	const float *Ix2_filter_data = NULL;
+	const float *IxIy_filter_data = NULL;
+	const float *Iy2_filter_data = NULL;
+
+	float a = 0.0;
+	float b = 0.0;
+	float c = 0.0;
+
+	float *dst_data = NULL;
+
+	cv::Mat srcImg(h,w,CV_8UC1,grayImgData);
+	cv::Mat DxImg(h,w,CV_32FC1);
+	cv::Mat DyImg(h,w,CV_32FC1);
+
+	int i,j;
+
+	scale *= 255;
+	scale = 1./scale;
+
+	if( !grayImgData )
+	{
+		return -1;
+	}
+
+	if( nkSize > 0 )
+	{
+		sobel_x( grayImgData, w, h, Dx, nkSize, 1.0, 0 );
+		sobel_y( grayImgData, w, h, Dy, nkSize, 1.0, 0 );
+
+		//cv::Sobel( srcImg, DxImg, CV_32F, 1, 0, nkSize, 1.0, 0 );
+		//cv::Sobel( srcImg, DyImg, CV_32F, 0, 1, nkSize, 1.0, 0 );
+	}
+
+	for( i = 0; i < h; i++ )
+	{
+		//float* cov_data = (float*)(cov.data + i*cov.step);
+		//dxdata = (float*)(DxImg.data + i*w);
+		//dydata = (float*)(DyImg.data + i*w);
+
+		for( j = 0; j < w; j++ )
+		{
+
+			Ix2[i*w+j] = Dx[i*w+j]*Dx[i*w+j];
+			IxIy[i*w+j] = Dx[i*w+j]*Dy[i*w+j];
+			Iy2[i*w+j] = Dy[i*w+j]*Dy[i*w+j];
+
+			/*Ix2[i*w+j] = DxImg.at<float>(i,j)*DxImg.at<float>(i,j);
+			IxIy[i*w+j] = DxImg.at<float>(i,j)*DyImg.at<float>(i,j);
+			Iy2[i*w+j] = DyImg.at<float>(i,j)*DyImg.at<float>(i,j);*/
+		}
+	}
+
+	FindCorner_ShiThomas::filter_c( Ix2, w, h, Ix2_filter, 3, false );
+	FindCorner_ShiThomas::filter_c( IxIy, w, h, IxIy_filter, 3, false );
+	FindCorner_ShiThomas::filter_c( Iy2, w, h, Iy2_filter, 3, false );
+
+	for( i = 0; i < h; i++ )
+	{
+		Ix2_filter_data = Ix2_filter + i * w;
+		IxIy_filter_data = IxIy_filter + i * w;
+		Iy2_filter_data = Iy2_filter + i * w;
+		dst_data = eigData + i * w;
+
+		for( j = 0; j < w; j++ )
+		{
+			a = Ix2_filter_data[j]*0.5f;
+			b = IxIy_filter_data[j];
+			c = Iy2_filter_data[j]*0.5f;
+
+			dst_data[j] = (float)((a + c) - sqrtf((a - c)*(a - c) + b*b));
+		}
+	}
+
+	//free memory
+	if( Dx )
+	{
+		free(Dx);
+		Dx = NULL;
+	}
+
+	if( Dy )
+	{
+		free(Dy);
+		Dy = NULL;
+	}
+
+	if( Ix2 )
+	{
+		free(Ix2);
+		Ix2 = NULL;
+	}
+
+	if( IxIy )
+	{
+		free(IxIy);
+		IxIy = NULL;
+	}
+
+	if( Iy2 )
+	{
+		free(Iy2);
+		Iy2 = NULL;
+	}
+
+	if( Ix2_filter )
+	{
+		free(Ix2_filter);
+		Ix2_filter = NULL;
+	}
+
+	if( IxIy_filter )
+	{
+		free(IxIy_filter);
+		IxIy_filter = NULL;
+	}
+
+	if( Iy2_filter )
+	{
+		free(Iy2_filter);
+		Iy2_filter = NULL;
+	}
+
+	return 0;
 }
 
 int FindCorner_ShiThomas::cornerMinEigenVal( cv::Mat grayImg, cv::Mat &eig, int nblockSize, int nkSize)
@@ -3727,28 +4416,80 @@ int FindCorner_ShiThomas::cornerMinEigenVal( cv::Mat grayImg, cv::Mat &eig, int 
 		}
 	}
 
-	//eig.create(size_,CV_32FC1);
+	cv::Mat Ix2( size_, CV_32FC1 );
+	cv::Mat IxIy( size_, CV_32FC1 );
+	cv::Mat Iy2( size_, CV_32FC1 );
+	vector<Mat> channels;
+	split(cov,channels);//分离色彩通道  
+	Ix2 = channels.at(0);  
+	IxIy = channels.at(1);  
+	Iy2 = channels.at(2);  
 
-	FindCorner_ShiThomas::boxFilter( cov, cov_filter, 3 );
+	cv::Mat Ix2_filter( size_, CV_32FC1 );
+	cv::Mat IxIy_filter( size_, CV_32FC1 );
+	cv::Mat Iy2_filter( size_, CV_32FC1 );
+
+	float *Ix2_data = NULL;
+	float *IxIy_data = NULL;
+	float *Iy2_data = NULL;
+
+	float *Ix2_filter_data = NULL;
+	float *IxIy_filter_data = NULL;
+	float *Iy2_filter_data = NULL;
+
+	Ix2_data = (float *)malloc(size_.width*size_.height*sizeof(float));
+	IxIy_data = (float *)malloc(size_.width*size_.height*sizeof(float));
+	Iy2_data = (float *)malloc(size_.width*size_.height*sizeof(float));
+
+	Ix2_filter_data = (float *)malloc(size_.width*size_.height*sizeof(float));
+	IxIy_filter_data = (float *)malloc(size_.width*size_.height*sizeof(float));
+	Iy2_filter_data = (float *)malloc(size_.width*size_.height*sizeof(float));
+
+	for( int i = 0; i < size_.height; i++ )
+	{
+		for( int j = 0; j < size_.width; j++ )
+		{
+			Ix2_data[i*size_.width+j] = Ix2.at<float>(i,j);
+			IxIy_data[i*size_.width+j] = IxIy.at<float>(i,j);
+			Iy2_data[i*size_.width+j] = Iy2.at<float>(i,j);
+		}
+	}
+
+	//eig.create(size_,CV_32FC1);
+	FindCorner_ShiThomas::filter_c( Ix2_data, size_.width, size_.height, Ix2_filter_data,3,false );
+	FindCorner_ShiThomas::filter_c( IxIy_data, size_.width, size_.height, IxIy_filter_data,3,false );
+	FindCorner_ShiThomas::filter_c( Iy2_data, size_.width, size_.height, Iy2_filter_data,3,false );
+
+	//FindCorner_ShiThomas::boxFilter( cov, cov_filter, 3 );
 
 	cv::Size sz = cov_filter.size();
 
-	if( cov_filter.isContinuous() && eig.isContinuous() )
+	/*if( cov_filter.isContinuous() && eig.isContinuous() )
 	{
 		sz.width *= sz.height;
 		sz.height = 1;
-	}
+	}*/
 
 	for( i = 0; i < sz.height; i++ )
 	{
-		const float *covfilter_data = (const float *)(cov_filter.data + cov_filter.step*i);
+		//const float *covfilter_data = (const float *)(cov_filter.data + cov_filter.step*i);
+
+		const float *Ix2_filter_temp_data = Ix2_filter_data + i * sz.width;
+		const float *IxIy_filter_temp_data = IxIy_filter_data + i * sz.width;
+		const float *Iy2_filter_temp_data = Iy2_filter_data + i * sz.width;
+
 		float *dst = (float*)(eig.data + eig.step*i);
 
 		for( j = 0; j < sz.width; j++ )
 		{
-			float a = covfilter_data[j*3]*0.5f;
+			/*float a = covfilter_data[j*3]*0.5f;
 			float b = covfilter_data[j*3+1];
-			float c = covfilter_data[j*3+2]*0.5f;
+			float c = covfilter_data[j*3+2]*0.5f;*/
+
+			float a = Ix2_filter_temp_data[j]*0.5f;
+			float b = IxIy_filter_temp_data[j];
+			float c = Iy2_filter_temp_data[j]*0.5f;
+
 			dst[j] = (float)((a + c) - std::sqrt((a - c)*(a - c) + b*b));
 		}
 	}

@@ -186,6 +186,5 @@ void Stack_Point2d_test()
 
 	Destroy_Stack_Point2d(S1);
 
-
 }
 

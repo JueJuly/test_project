@@ -52,6 +52,13 @@ int _tmain(int argc, _TCHAR* argv[])
 	//
 
 	//SiftDetectorTest();
+	long l_num = 128;
+	float f_temp_num = (float)(l_num >> 8);
+
+	cout << "l_num:" << l_num << endl;
+	
+	printf("f_temp_num:%0.4f\n",f_temp_num);
+
 	FindCorner_ShiThomas::run();
 
 	return 0;
