@@ -3577,119 +3577,124 @@ int FindCorner_ShiThomas::CornerDetect( cv::Mat grayImg, vector<cv::Point2f> &co
 	}
     //vector<Point2f> corners;  
 	ncorners = 0;
-    size_t i, j, total = tmpCorners.size();  
-  
-    //下面的程序有点稍微难理解，需要自己仔细想想  
-    if( nminDist >= 1 )    
-    {  
-         // Partition the image into larger grids  
-        int w = image.cols;  
-        int h = image.rows;  
-  
-        const int cell_size = cvRound(nminDist);   //向最近的整数取整  
-  
-    //这里根据cell_size构建了一个矩形窗口grid(虽然下面的grid定义的是vector<vector>，而并不是我们这里说的矩形窗口，但为了便于理解,还是将grid想象成一个grid_width * grid_height的矩形窗口比较好)，除以cell_size说明grid窗口里相差一个像素相当于_image里相差minDistance个像素，至于为什么加上cell_size - 1后面会讲  
-        const int grid_width = (w + cell_size - 1) / cell_size;   
-        const int grid_height = (h + cell_size - 1) / cell_size;  
-  
-        std::vector<std::vector<Point2f> > grid(grid_width*grid_height);  //vector里面是vector，grid用来保存获得的强角点坐标  
-  
-        nminDist *= nminDist;  //平方，方便后面的计算，省的开根号  
-  
-        for( i = 0; i < total; i++ )     // 刚刚粗选的弱角点，都要到这里来接收新一轮的考验  
-        {  
-            int ofs = (int)((const uchar*)tmpCorners[i] - eig.data);  //tmpCorners中保存了角点的地址，eig.data返回eig内存块的首地址  
-            //int y = (int)(ofs / eig.step);   //角点在原图像中的行  
-            //int x = (int)((ofs - y*eig.step)/sizeof(float));  //在原图像中的列 
-			//int y = vecFeature[i].coord.y;
-			//int x = vecFeature[i].coord.x;
+    size_t i, j, total = tmpCorners.size(); 
 
-			int y = cornerFeature[i].coord.y;
-			int x = cornerFeature[i].coord.x;
+	FindCorner_ShiThomas::getCorner(cornerFeature, vecFeature,corners,ncorners,FeatureVec,imgsize.width,\
+										imgsize.height,nmaxCornerNum,nminDist);
+	////---------------------------------------------------------------------------------------
+ //   //下面的程序有点稍微难理解，需要自己仔细想想  
+ //   if( nminDist >= 1 )    
+ //   {  
+ //        // Partition the image into larger grids  
+ //       int w = image.cols;  
+ //       int h = image.rows;  
+ // 
+ //       const int cell_size = cvRound(nminDist);   //向最近的整数取整  
+ // 
+ //   //这里根据cell_size构建了一个矩形窗口grid(虽然下面的grid定义的是vector<vector>，而并不是我们这里说的矩形窗口，但为了便于理解,还是将grid想象成一个grid_width * grid_height的矩形窗口比较好)，除以cell_size说明grid窗口里相差一个像素相当于_image里相差minDistance个像素，至于为什么加上cell_size - 1后面会讲  
+ //       const int grid_width = (w + cell_size - 1) / cell_size;   
+ //       const int grid_height = (h + cell_size - 1) / cell_size;  
+ // 
+ //       std::vector<std::vector<Point2f> > grid(grid_width*grid_height);  //vector里面是vector，grid用来保存获得的强角点坐标  
+ // 
+ //       nminDist *= nminDist;  //平方，方便后面的计算，省的开根号  
+ // 
+ //       for( i = 0; i < total; i++ )     // 刚刚粗选的弱角点，都要到这里来接收新一轮的考验  
+ //       {  
+ //           int ofs = (int)((const uchar*)tmpCorners[i] - eig.data);  //tmpCorners中保存了角点的地址，eig.data返回eig内存块的首地址  
+ //           //int y = (int)(ofs / eig.step);   //角点在原图像中的行  
+ //           //int x = (int)((ofs - y*eig.step)/sizeof(float));  //在原图像中的列 
+	//		//int y = vecFeature[i].coord.y;
+	//		//int x = vecFeature[i].coord.x;
 
-			temp.coord.y = y;
-			temp.coord.x = x;
-			temp.fval = vecFeature[i].fval;
+	//		int y = cornerFeature[i].coord.y;
+	//		int x = cornerFeature[i].coord.x;
 
-            bool good = true;  //先认为当前角点能接收考验，即能被保留下来  
-  
-            int x_cell = x / cell_size;  //x_cell，y_cell是角点（y,x）在grid中的对应坐标  
-            int y_cell = y / cell_size;  
-  
-            int x1 = x_cell - 1;  // (y_cell，x_cell）的4邻域像素  
-            int y1 = y_cell - 1;  //现在知道为什么前面grid_width定义时要加上cell_size - 1了吧，这是为了使得（y,x）在grid中的4邻域像素都存在，也就是说(y_cell，x_cell）不会成为边界像素  
-            int x2 = x_cell + 1;    
-            int y2 = y_cell + 1;  
-  
-            // boundary check，再次确认x1,y1,x2或y2不会超出grid边界  
-            x1 = std::max(0, x1);  //比较0和x1的大小  
-            y1 = std::max(0, y1);  
-            x2 = std::min(grid_width-1, x2);  
-            y2 = std::min(grid_height-1, y2);  
-  
-            //记住grid中相差一个像素，相当于_image中相差了minDistance个像素  
-            for( int yy = y1; yy <= y2; yy++ )  // 行  
-            {  
-                for( int xx = x1; xx <= x2; xx++ )  //列  
-                {  
-                    vector <Point2f> &m = grid[yy*grid_width + xx];  //引用  
-  
-					//如果(y_cell，x_cell)的4邻域像素，
-					//也就是(y,x)的minDistance邻域像素中已有被保留的强角点  
-                    if( m.size() )  
-                    {                 
-                        for(j = 0; j < m.size(); j++)   //当前角点周围的强角点都拉出来跟当前角点比一比  
-                        {  
-                            float dx = x - m[j].x;  
-                            float dy = y - m[j].y;  
-               //注意如果(y,x)的minDistance邻域像素中已有被保留的强角点，则说明该强角点是在(y,x)之前就被测试过的，
-			   //又因为tmpCorners中已按照特征值降序排列（特征值越大说明角点越好），这说明先测试的一定是更好的角点，
-				//也就是已保存的强角点一定好于当前角点，所以这里只要比较距离，如果距离满足条件，
-				//可以立马扔掉当前测试的角点  
-                            if( dx*dx + dy*dy < nminDist )  
-                            {                                                         
-								good = false;  
-                                goto break_out;  
-                            }  
-                        }  
-                    }  
-                }   // 列  
-            }    //行  
-  
-            break_out:  
-  
-            if(good)  
-            {  
-                // printf("%d: %d %d -> %d %d, %d, %d -- %d %d %d %d, %d %d, c=%d\n",  
-                //    i,x, y, x_cell, y_cell, (int)minDistance, cell_size,x1,y1,x2,y2, grid_width,grid_height,c);  
-                grid[y_cell*grid_width + x_cell].push_back(Point2f((float)x, (float)y));  
-  
-                corners.push_back( Point2f((float)x, (float)y) );  
-				FeatureVec.push_back( temp );
-                ++ncorners;  
-  
-				//由于前面已按降序排列，当ncorners超过maxCorners的时候跳出循环直接忽略tmpCorners中剩下的角点，
-				//反正剩下的角点越来越弱 
-                if( nmaxCornerNum > 0 && (int)ncorners == nmaxCornerNum )   
-                    break;  
-            }  
-        }  
-    }  
-    else    //除了像素本身，没有哪个邻域像素能与当前像素满足minDistance < 1,因此直接保存粗选的角点  
-    {  
-        for( i = 0; i < total; i++ )  
-        {  
-            int ofs = (int)((const uchar*)tmpCorners[i] - eig.data);  
-            int y = (int)(ofs / eig.step);   //粗选的角点在原图像中的行  
-            int x = (int)((ofs - y*eig.step)/sizeof(float));  //在图像中的列  
-  
-            corners.push_back(Point2f((float)x, (float)y));  
-            ++ncorners;  
-            if( nmaxCornerNum > 0 && (int)ncorners == nmaxCornerNum )    
-                break;  
-        }  
-    }  
-  
+	//		temp.coord.y = y;
+	//		temp.coord.x = x;
+	//		temp.fval = vecFeature[i].fval;
+
+ //           bool good = true;  //先认为当前角点能接收考验，即能被保留下来  
+ // 
+ //           int x_cell = x / cell_size;  //x_cell，y_cell是角点（y,x）在grid中的对应坐标  
+ //           int y_cell = y / cell_size;  
+ // 
+ //           int x1 = x_cell - 1;  // (y_cell，x_cell）的4邻域像素  
+ //           int y1 = y_cell - 1;  //现在知道为什么前面grid_width定义时要加上cell_size - 1了吧，这是为了使得（y,x）在grid中的4邻域像素都存在，也就是说(y_cell，x_cell）不会成为边界像素  
+ //           int x2 = x_cell + 1;    
+ //           int y2 = y_cell + 1;  
+ // 
+ //           // boundary check，再次确认x1,y1,x2或y2不会超出grid边界  
+ //           x1 = std::max(0, x1);  //比较0和x1的大小  
+ //           y1 = std::max(0, y1);  
+ //           x2 = std::min(grid_width-1, x2);  
+ //           y2 = std::min(grid_height-1, y2);  
+ // 
+ //           //记住grid中相差一个像素，相当于_image中相差了minDistance个像素  
+ //           for( int yy = y1; yy <= y2; yy++ )  // 行  
+ //           {  
+ //               for( int xx = x1; xx <= x2; xx++ )  //列  
+ //               {  
+ //                   vector <Point2f> &m = grid[yy*grid_width + xx];  //引用  
+ // 
+	//				//如果(y_cell，x_cell)的4邻域像素，
+	//				//也就是(y,x)的minDistance邻域像素中已有被保留的强角点  
+ //                   if( m.size() )  
+ //                   {                 
+ //                       for(j = 0; j < m.size(); j++)   //当前角点周围的强角点都拉出来跟当前角点比一比  
+ //                       {  
+ //                           float dx = x - m[j].x;  
+ //                           float dy = y - m[j].y;  
+ //              //注意如果(y,x)的minDistance邻域像素中已有被保留的强角点，则说明该强角点是在(y,x)之前就被测试过的，
+	//		   //又因为tmpCorners中已按照特征值降序排列（特征值越大说明角点越好），这说明先测试的一定是更好的角点，
+	//			//也就是已保存的强角点一定好于当前角点，所以这里只要比较距离，如果距离满足条件，
+	//			//可以立马扔掉当前测试的角点  
+ //                           if( dx*dx + dy*dy < nminDist )  
+ //                           {                                                         
+	//							good = false;  
+ //                               goto break_out;  
+ //                           }  
+ //                       }  
+ //                   }  
+ //               }   // 列  
+ //           }    //行  
+ // 
+ //           break_out:  
+ // 
+ //           if(good)  
+ //           {  
+ //               // printf("%d: %d %d -> %d %d, %d, %d -- %d %d %d %d, %d %d, c=%d\n",  
+ //               //    i,x, y, x_cell, y_cell, (int)minDistance, cell_size,x1,y1,x2,y2, grid_width,grid_height,c);  
+ //               grid[y_cell*grid_width + x_cell].push_back(Point2f((float)x, (float)y));  
+ // 
+ //               corners.push_back( Point2f((float)x, (float)y) );  
+	//			FeatureVec.push_back( temp );
+ //               ++ncorners;  
+ // 
+	//			//由于前面已按降序排列，当ncorners超过maxCorners的时候跳出循环直接忽略tmpCorners中剩下的角点，
+	//			//反正剩下的角点越来越弱 
+ //               if( nmaxCornerNum > 0 && (int)ncorners == nmaxCornerNum )   
+ //                   break;  
+ //           }  
+ //       }  
+ //   }  
+ //   else    //除了像素本身，没有哪个邻域像素能与当前像素满足minDistance < 1,因此直接保存粗选的角点  
+ //   {  
+ //       for( i = 0; i < total; i++ )  
+ //       {  
+ //           int ofs = (int)((const uchar*)tmpCorners[i] - eig.data);  
+ //           int y = (int)(ofs / eig.step);   //粗选的角点在原图像中的行  
+ //           int x = (int)((ofs - y*eig.step)/sizeof(float));  //在图像中的列  
+ // 
+ //           corners.push_back(Point2f((float)x, (float)y));  
+ //           ++ncorners;  
+ //           if( nmaxCornerNum > 0 && (int)ncorners == nmaxCornerNum )    
+ //               break;  
+ //       }  
+ //   }  
+ // 
+	////----------------------------------------------------------------------
+
     //Mat(corners).convertTo(corner, corner.fixedType() ? corner.type() : CV_32F);  
   
     /* 
@@ -3719,7 +3724,180 @@ int FindCorner_ShiThomas::CornerDetect( cv::Mat grayImg, vector<cv::Point2f> &co
     } 
 */  
 
+	if(cornerFeature)
+	{
+		free(cornerFeature);
+		cornerFeature = NULL;
+	}
+
 	return 0;
+}
+
+int FindCorner_ShiThomas::getCorner( mvFeature *cornerFeature, vector<mvFeature> &vecFeature, \
+									vector<cv::Point2f> &corner,int &ncorner, vector<mvFeature> &FeatureVec, \
+									int w, int h,int nMaxCornerNum,int nMinDistance )
+{
+	int i,j,Total,yy,xx;
+	const int cell_size = nMinDistance;
+	const int grid_width = (int)(w + cell_size - 1) / cell_size;
+	const int grid_height = (int)( h + cell_size - 1 ) / cell_size;
+	int y,x;
+	int x_cell,y_cell;
+	int x1,y1,x2,y2;
+	mvFeature temp;
+	bool bBreak = false;
+	bool good = true;
+	mvGrid *grid;
+	mvGrid m;
+
+	Total = cornerFeature->nNum;
+	
+
+	if( !cornerFeature->nNum  )
+	{
+		return -1;
+	}
+
+	grid = (mvGrid *)malloc(sizeof(mvGrid)*grid_height*grid_width);
+
+	for( i = 0; i < grid_width*grid_height; i++ )
+	{
+		grid[i].mvPt2f = (mvPoint2f *)malloc(sizeof(mvPoint2f)*1000);
+		grid[i].nPtNum = 0;
+	}
+	
+	if( nMinDistance >= 1 )
+	{
+		nMinDistance *= nMinDistance;
+
+		for( i = 0; i < Total; i++ )
+		{
+			y = cornerFeature[i].coord.y;
+			x = cornerFeature[i].coord.x;
+
+			temp.coord.y = y;
+			temp.coord.x = x;
+			temp.fval = vecFeature[i].fval;
+
+			good = true;
+
+			x_cell = x / cell_size;
+			y_cell = y / cell_size;
+
+			x1 = x_cell - 1;
+			y1 = y_cell - 1;
+			x2 = x_cell + 1;
+			y2 = y_cell + 1;
+
+			// boundary check，再次确认x1,y1,x2或y2不会超出grid边界  
+			x1 = std::max(0, x1);  //比较0和x1的大小  
+			y1 = std::max(0, y1);  
+			x2 = std::min(grid_width-1, x2);  
+			y2 = std::min(grid_height-1, y2);  
+			bBreak = false;
+			//记住grid中相差一个像素，相当于_image中相差了minDistance个像素  
+			for( yy = y1; yy <= y2; yy++ )  // 行  
+			{  
+				for( xx = x1; xx <= x2; xx++ )  //列  
+				{ 
+					m = grid[yy*grid_width + xx];  //引用 
+
+					//如果(y_cell，x_cell)的4邻域像素，
+					//也就是(y,x)的minDistance邻域像素中已有被保留的强角点  
+					if( m.nPtNum )  
+					{                 
+						for(j = 0; j < m.nPtNum; j++)   //当前角点周围的强角点都拉出来跟当前角点比一比  
+						{  
+							float dx = x - m.mvPt2f[j].x;  
+							float dy = y - m.mvPt2f[j].y;  
+							 
+							if( dx*dx + dy*dy < nMinDistance )  
+							{                                                         
+								good = false;  
+								//goto break_out;  
+								bBreak = true;
+								break;
+							}  
+						}  
+					} 
+
+					if( bBreak )
+					{
+						break;
+					}
+
+				}//列
+
+				if( bBreak )
+				{
+					break;
+				}
+
+			}//行
+
+			break_out: 
+
+			if(good)  
+			{  
+				  
+				grid[y_cell*grid_width + x_cell].mvPt2f[grid[y_cell*grid_width + x_cell].nPtNum].x = (float)x;
+				grid[y_cell*grid_width + x_cell].mvPt2f[grid[y_cell*grid_width + x_cell].nPtNum].y = (float)y;
+				grid[y_cell*grid_width + x_cell].nPtNum++;
+
+				corner.push_back( Point2f((float)x, (float)y) );  
+				FeatureVec.push_back( temp );
+				++ncorner;  
+
+				//由于前面已按降序排列，当ncorners超过maxCorners的时候跳出循环直接忽略tmpCorners中剩下的角点，
+				//反正剩下的角点越来越弱 
+				if( nMaxCornerNum > 0 && (int)ncorner == nMaxCornerNum )   
+					break;  
+			}  
+
+		}
+
+	}
+	else 
+	{
+		for( i = 0; i < Total; i++ )  
+		{  
+			y = cornerFeature[i].coord.y;
+			x = cornerFeature[i].coord.x;
+
+			temp.coord.y = y;
+			temp.coord.x = x;
+			temp.fval = vecFeature[i].fval;
+
+			corner.push_back( Point2f((float)x, (float)y) );  
+			FeatureVec.push_back( temp );
+			++ncorner;  
+
+			//由于前面已按降序排列，当ncorners超过maxCorners的时候跳出循环直接忽略tmpCorners中剩下的角点，
+			//反正剩下的角点越来越弱 
+			if( nMaxCornerNum > 0 && (int)ncorner == nMaxCornerNum )   
+				break;  
+		} 
+	}
+
+	for( i = 0; i < grid_width*grid_height; i++ )
+	{
+		if(grid[i].mvPt2f)
+		{
+			free(grid[i].mvPt2f);
+			grid[i].mvPt2f = NULL;
+			grid[i].nPtNum = 0;
+		}
+		
+	}
+
+	if(grid)
+	{
+		free(grid);
+		grid = NULL;
+	}
+
+	return 0;
+	
 }
 
 bool FindCorner_ShiThomas::CMP( const mvFeature &a, const mvFeature &b )

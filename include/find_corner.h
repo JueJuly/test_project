@@ -32,12 +32,24 @@ namespace FindCorner_ShiThomas
 		int y;
 	}mvPoint;
 
+	typedef struct MV_POINT_2F
+	{
+		float x;
+		float y;
+	}mvPoint2f;
+
 	typedef struct  MV_FEATURE
 	{
 		float fval;
 		mvPoint coord;
 		int nNum;
 	}mvFeature;
+
+	typedef struct MV_GRID
+	{
+		mvPoint2f *mvPt2f;
+		int nPtNum;
+	}mvGrid;
 
 	template<typename T> struct greaterThanPtr
 	{
@@ -69,6 +81,9 @@ namespace FindCorner_ShiThomas
 	int dilate_c( float *srcData, float *dstData, int w, int h );
 	int sort_cplusplus( vector<float *> &tempCorner, bool ascend = true );
 	int sort_c( mvFeature *cornerFeature, bool ascend = true );
+	int getCorner( mvFeature *cornerFeature, vector<mvFeature> &vecFeature, \
+					vector<cv::Point2f> &corner,int &ncorner, vector<mvFeature> &FeatureVec, \
+					int w, int h,int nMaxCornerNum,int nMinDistance = 10 );
 
 	int run();
 
