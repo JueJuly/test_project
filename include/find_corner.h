@@ -13,6 +13,7 @@
 #include "common.h"
 #include "point.h"
 #include <tchar.h>
+#include <time.h>
 
 //定义算子类型
 enum OperatorType
@@ -20,8 +21,6 @@ enum OperatorType
 	SOBEL   = 0, //sobel算子
 	LAPLACE = 1  //拉普拉斯算子
 };
-
-
 
 
 namespace FindCorner_ShiThomas
@@ -81,6 +80,8 @@ namespace FindCorner_ShiThomas
 	int dilate_c( float *srcData, float *dstData, int w, int h );
 	int sort_cplusplus( vector<float *> &tempCorner, bool ascend = true );
 	int sort_c( mvFeature *cornerFeature, bool ascend = true );
+	int qsort_c( mvFeature *cornerFeature, int low, int hight, bool ascend = true );
+
 	int getCorner( mvFeature *cornerFeature, vector<mvFeature> &vecFeature, \
 					vector<cv::Point2f> &corner,int &ncorner, vector<mvFeature> &FeatureVec, \
 					int w, int h,int nMaxCornerNum,int nMinDistance = 10 );

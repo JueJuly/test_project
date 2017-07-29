@@ -3564,13 +3564,22 @@ int FindCorner_ShiThomas::CornerDetect( cv::Mat grayImg, vector<cv::Point2f> &co
 		tmpCorners_1.push_back( (float *)tmpCorners[i] );
 	}
 
+	clock_t start,end;
 	//按特征值降序排列，注意这一步很重要，
 	//后面的很多编程思路都是建立在这个降序排列的基础上  
 	//sort( tmpCorners, greaterThanPtr<float>() );
 	sort( vecFeature.begin(), vecFeature.end(), CMP );
 	//FindCorner_ShiThomas::sort_cplusplus(tmpCorners_1, false );
+	start = clock();  
 	FindCorner_ShiThomas::sort_c( cornerFeature, false );
+	end = clock();  
+	printf("sort_c spend time=%0.4f\n",(double)(end-start));
 
+	start = clock();  
+	FindCorner_ShiThomas::qsort_c( cornerFeature, 0, cornerFeature->nNum-1, false );
+	end = clock();  
+
+	printf("qsort_c spend time=%0.4f\n",(double)(end-start));
 	for( int i = 0; i < tmpCorners.size(); i++ )
 	{
 		tmpCorners[i] = tmpCorners_1[i];
@@ -3968,6 +3977,109 @@ int FindCorner_ShiThomas::sort_c( mvFeature *cornerFeature, bool ascend )
 
 			}
 		}
+	}
+
+	return 0;
+}
+
+int FindCorner_ShiThomas::qsort_c( mvFeature *cornerFeature, int low, int high, bool ascend )
+{
+	int nTotal = cornerFeature->nNum;
+	int i,j;
+	float tempVal;
+	mvPoint pt;
+
+	if( low >= high )
+	{
+		return 0;
+	}
+
+	if( ascend )
+	{
+		int first = low;
+		int last = high;
+		float val = cornerFeature[first].fval;
+
+		while( first < last )
+		{
+			while( first < last && cornerFeature[last].fval >= val )
+			{
+				--last;
+			}
+
+			cornerFeature[first].fval = cornerFeature[last].fval;
+			cornerFeature[first].coord.x = cornerFeature[last].coord.x;
+			cornerFeature[first].coord.y = cornerFeature[last].coord.y;
+
+			while(first < last && cornerFeature[first].fval <= val)
+			{
+				first++;
+			}
+
+			cornerFeature[last].fval = cornerFeature[first].fval;
+			cornerFeature[last].coord.x = cornerFeature[first].coord.x;
+			cornerFeature[last].coord.y = cornerFeature[first].coord.y;
+
+		}
+		cornerFeature[first].fval = val;
+		qsort_c( cornerFeature, low, first-1 );
+		qsort_c( cornerFeature, first+1, high );
+
+
+		//for( i = 0; i < nTotal-1; i++ )
+		//{
+		//	for( j = 0; j < nTotal-i-1; j++ )
+		//	{
+		//		if( cornerFeature[j].fval > cornerFeature[j+1].fval )
+		//		{
+		//			tempVal = cornerFeature[j+1].fval;
+		//			cornerFeature[j+1].fval = cornerFeature[j].fval;
+		//			cornerFeature[j].fval = tempVal;
+
+		//			pt.x = cornerFeature[j+1].coord.x;
+		//			pt.y = cornerFeature[j+1].coord.y;
+
+		//			cornerFeature[j+1].coord.y = cornerFeature[j].coord.y;
+		//			cornerFeature[j+1].coord.x = cornerFeature[j].coord.x;
+
+		//			cornerFeature[j].coord.y = pt.y;
+		//			cornerFeature[j].coord.x = pt.x;
+		//			//nNum++;
+		//		}
+
+		//	}
+		//}
+	}
+	else
+	{
+		int first = low;
+		int last = high;
+		float val = cornerFeature[first].fval;
+
+		while( first < last )
+		{
+			while( first < last && cornerFeature[last].fval >= val )
+			{
+				--last;
+			}
+
+			cornerFeature[first].fval = cornerFeature[last].fval;
+			cornerFeature[first].coord.x = cornerFeature[last].coord.x;
+			cornerFeature[first].coord.y = cornerFeature[last].coord.y;
+
+			while(first < last && cornerFeature[first].fval <= val)
+			{
+				first++;
+			}
+
+			cornerFeature[last].fval = cornerFeature[first].fval;
+			cornerFeature[last].coord.x = cornerFeature[first].coord.x;
+			cornerFeature[last].coord.y = cornerFeature[first].coord.y;
+
+		}
+		cornerFeature[first].fval = val;
+		qsort_c( cornerFeature, low, first-1 );
+		qsort_c( cornerFeature, first+1, high );
 	}
 
 	return 0;
