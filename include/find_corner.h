@@ -44,6 +44,13 @@ namespace FindCorner_ShiThomas
 		int nNum;
 	}mvFeature;
 
+	typedef struct TempType
+	{
+		float val;
+		int x;
+		int y;
+	}TempType;
+
 	typedef struct MV_GRID
 	{
 		mvPoint2f *mvPt2f;
@@ -81,6 +88,7 @@ namespace FindCorner_ShiThomas
 	int sort_cplusplus( vector<float *> &tempCorner, bool ascend = true );
 	int sort_c( mvFeature *cornerFeature, bool ascend = true );
 	int qsort_c( mvFeature *cornerFeature, int low, int hight, bool ascend = true );
+	void qsort_mm( TempType *a, int left, int right );
 
 	int getCorner( mvFeature *cornerFeature, vector<mvFeature> &vecFeature, \
 					vector<cv::Point2f> &corner,int &ncorner, vector<mvFeature> &FeatureVec, \

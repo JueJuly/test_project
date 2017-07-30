@@ -61,6 +61,8 @@ int _tmain(int argc, _TCHAR* argv[])
 
 	FindCorner_ShiThomas::run();
 
+	//sort_test();
+
 	return 0;
 
 	for( int i = 0; i < 30; i++ )
@@ -1769,4 +1771,283 @@ int SiftDetectorTest()
      waitKey(0);*/
     
     return 0;
+}
+
+int cmp( const void *a , const void *b ) 
+{ 
+	return *(float *)a > *(float *)b ? 1 : -1; 
+}
+
+int std_sort( float a[] )
+{
+	//std::sort( a, a+4999 );
+	std::qsort( a, 4999, sizeof(a[0]), cmp );
+
+	return 0;
+}
+
+int bubble_sort( float a[] )
+{
+	int i,j;
+	int nTotal = 5000;
+	float tempVal;
+
+	for( i = 0; i < nTotal-1; i++ )
+	{
+		for( j = 0; j < nTotal-i-1; j++ )
+		{
+			if( a[j] > a[j+1] )
+			{
+				tempVal = a[j+1];
+				a[j+1] = a[j];
+				a[j] = tempVal;
+
+			}
+
+		}
+	}
+
+	return 0;
+}
+
+void quick_sort(float a[], int left, int right)  
+{  
+	static int nNum = 0;
+
+	printf("quick_sort call times : %d\n",nNum++);
+
+	if(left<right)  
+	{  
+		int i = left;  
+		int j = right;  
+		int x = a[i];  
+
+		while(i<j)  
+		{  
+			while(i<j&&a[j]>x)  
+				j--;  
+			if(i<j){  
+				a[i] = a[j];  
+				i++;  
+			}  
+			while(i<j&&a[i]<x)  
+				i++;  
+			if(i<j){  
+				a[j] = a[i];  
+				j--;  
+			}  
+		}  
+		a[i] = x;  
+		quick_sort(a, left, i-1);  
+		quick_sort(a, i+1, right);  
+	}  
+}  
+
+
+void Merge(RecType *R,int low,int m,int high)  
+{  
+	//将两个有序的子文件R[low..m)和R[m+1..high]归并成一个有序的子文件R[low..high]  
+	int i=low,j=m+1,p=0;                //置初始值  
+	RecType *R1;                        //R1是局部向量  
+	R1=(RecType *)malloc((high-low+1)*sizeof(RecType));  
+	if(!R1)  
+	{  
+		return;                         //申请空间失败  
+	}  
+
+	while(i<=m&&j<=high)                //两子文件非空时取其小者输出到R1[p]上  
+	{  
+		R1[p++]=(R[i]<=R[j])?R[i++]:R[j++];  
+	}  
+
+	while(i<=m)                         //若第1个子文件非空，则复制剩余记录到R1中  
+	{  
+		R1[p++]=R[i++];  
+	}  
+	while(j<=high)                      //若第2个子文件非空，则复制剩余记录到R1中  
+	{  
+		R1[p++]=R[j++];  
+	}  
+
+	for(p=0,i=low;i<=high;p++,i++)  
+	{  
+		R[i]=R1[p];                     //归并完成后将结果复制回R[low..high]  
+	}  
+}  
+
+void MergeSort(RecType R[],int low,int high)  
+{     
+	//用分治法对R[low..high]进行二路归并排序  
+	int mid;  
+	if(low<high)  
+	{   //区间长度大于1   
+		mid=(low+high)/2;               //分解  
+		MergeSort(R,low,mid);           //递归地对R[low..mid]排序  
+		MergeSort(R,mid+1,high);        //递归地对R[mid+1..high]排序  
+		Merge(R,low,mid,high);          //组合，将两个有序区归并为一个有序区  
+	}  
+}  
+
+void BubbleSort(float arr[], int len)
+{
+	int i;
+	float temp;
+	//记录位置，当前所在位置和最后发生交换的地方
+	int current,last = len - 1;
+	while(last > 0) {
+		for(i = current = 0;i < last;++i){
+			if(arr[i] > arr[i+1]){
+				temp = arr[i];
+				arr[i] = arr[i+1];
+				arr[i+1] = temp;
+				//记录当前的位置，如果没有发生交换current值即for循环初始化的0
+				current = i;
+			}
+		}
+		//若current = 0即已经没有可以交换的元素了，即已经有序了
+		last = current;
+	}
+}
+
+void qsort_mm( tempType a[5000], int left, int right )
+{
+	static int nNum = 0;
+
+	//printf("qsort_c call times : %d\n",nNum++);
+
+	if(left<right)  
+	{  
+		int i = left;  
+		int j = right;  
+		float val = a[i].val;
+		int y = a[i].y;
+		int x = a[i].x;
+
+		while(i<j)  
+		{  
+			while(i<j&&a[j].val > val)  
+				j--;  
+			if(i<j)
+			{  
+				a[i].val = a[j].val;
+				a[i].x = a[j].x;
+				a[i].y = a[j].y;
+				i++;  
+			}  
+			while(i<j&&a[i].val<val)  
+				i++;  
+			if(i<j)
+			{  
+				a[j].val = a[i].val;
+				a[j].x = a[i].x;
+				a[j].y = a[i].y;
+				j--;  
+			}  
+		}  
+		a[i].val = val;  
+		a[i].x = x;
+		a[i].y = y;
+
+		qsort_mm(a, left, i-1);  
+		qsort_mm(a, i+1, right);  
+	}  
+}
+
+
+int sort_test()
+{
+	float a[5000] = {0};
+	tempType b[50000];
+
+	for( int i = 0; i < 5000; i++ )
+	{
+		a[i] = (rand() % 255)/1.5f;
+		/*b[i].val = a[i];
+		b[i].x = 5000-rand()%255;
+		b[i].y = rand() % 255;
+
+		if( i < 50 )
+			printf("%0.4f,",a[i]);*/
+	}
+	printf("\n");
+
+	for( int i = 0; i < 50000; i++ )
+	{
+		b[i].val = (rand()%255+5)*11.25f;;
+		b[i].x = 5000-rand()%255;
+		b[i].y = rand() % 255;
+	}
+	printf("\n");
+
+	
+
+	clock_t start,end;
+
+	start = clock();
+	qsort_mm(b,0,49999);
+	end = clock();
+	printf("qsort_mm spend time=%0.4f\n",(double)(end-start));
+
+	for( int i = 0; i < 500; i++ )
+	{
+		//a[i] = (rand() % 255)/1.5f;
+		//b[i].val = a[i];
+		//b[i].x = 5000-rand()%255;
+		//b[i].y = rand() % 255;
+		printf("%0.4f,",b[i].val);
+			
+	}
+	printf("\n");
+
+	start = clock();
+
+	std_sort( a );
+
+	end = clock();  
+	printf("std_sort spend time=%0.4f\n",(double)(end-start));
+
+	for( int i = 0; i < 5000; i++ )
+	{
+		a[i] = (rand() % 255)/1.5f;
+		//printf("%0.4f,",a[i]);
+	}
+	start = clock();
+
+	//bubble_sort( a );
+	BubbleSort(a, 4999),
+
+	end = clock();  
+	printf("BubbleSort spend time=%0.4f\n",(double)(end-start));
+	for( int i = 0; i < 5000; i++ )
+	{
+		a[i] = (rand() % 255+4)*1.5f;
+		//printf("%0.4f,",a[i]);
+	}
+	printf("\n");
+	start = clock();
+
+	quick_sort( a, 0, 4999 );
+
+	end = clock();  
+	printf("quick_sort spend time=%0.4f\n",(double)(end-start));
+
+	for( int i = 0; i < 5000; i++ )
+	{
+		a[i] = (rand() % 255)/1.5f;
+		//printf("%0.4f,",a[i]);
+	}
+	start = clock();
+	MergeSort(a,0,4999);
+	end = clock();  
+	printf("MergeSort spend time=%0.4f\n",(double)(end-start));
+
+	for( int i = 0; i < 5000; i++ )
+	{
+		//a[i] = (rand() % 255)/1.5f;
+		//printf("%0.4f,",a[i]);
+	}
+	printf("\n");
+
+	return 0;
+
 }

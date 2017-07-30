@@ -16,6 +16,28 @@
 #define NDEBUG
 #include <assert.h>
 
+typedef struct tempType
+{
+	float val;
+	int x;
+	int y;
+}tempType;
+
+int std_sort( float a[] );
+int bubble_sort( float a[] );
+void quick_sort(float a[], int left, int right); 
+void qsort_mm( tempType a[5000], int left, int right );
+
+int cmp( const void *a , const void *b ) ;
+
+void BubbleSort(float arr[], int len);
+
+typedef float RecType;//要排序元素类型  
+void Merge(RecType *R,int low,int m,int high)  ;
+void MergeSort(RecType R[],int low,int high)  ;
+
+int sort_test();
+
 //void get_mask_img();
 void get_mask_img(const cv::String src_img_path, const cv::String mask_zone_img_path, const cv::String save_mask_img_path );
 void chessboard_corner_detect_test( const cv::String src_img_path, const cv::Size board_size );
